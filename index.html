@@ -15,6 +15,11 @@
                     <span class="logo-icon">📅</span>
                     <span class="logo-text">Planner</span>
                 </div>
+                <button class="hamburger" id="sidebarToggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
             </div>
 
             <nav class="sidebar-nav">
@@ -77,8 +82,8 @@
 
                 <div class="daily-tasks">
                     <h3>✓ Tasks</h3>
-                    <div class="task-input-group">
-                        <input type="text" id="dailyTaskInput" placeholder="Add a task..." class="task-input">
+                    <div class="task-input-group" style="flex-wrap: wrap;">
+                        <input type="text" id="dailyTaskInput" placeholder="Add a task..." class="task-input" style="flex: 1 1 100%; margin-bottom: 8px;">
                         <select id="dailyTaskQuadrant" class="task-quadrant-select">
                             <option value="">No Priority</option>
                             <option value="urgent-important">🔥 Urgent & Important</option>
@@ -86,6 +91,7 @@
                             <option value="urgent-not-important">⚡ Urgent & Not Important</option>
                             <option value="not-urgent-not-important">🗑️ Not Urgent & Not Important</option>
                         </select>
+                        <input type="number" id="dailyTaskDuration" placeholder="Hours" class="task-duration-input" min="0" step="0.5">
                         <button id="addDailyTask" class="btn btn-add">+</button>
                     </div>
                     <ul id="dailyTaskList" class="task-list"></ul>

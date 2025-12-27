@@ -269,11 +269,13 @@ function renderTimeSlots(dateKey) {
 function addTask() {
     const input = document.getElementById('dailyTaskInput');
     const quadrantSelect = document.getElementById('dailyTaskQuadrant');
+    const durationInput = document.getElementById('dailyTaskDuration');
     const taskText = input.value.trim();
     if (!taskText) return;
 
     const dateKey = formatDate(AppState.currentDate);
     const quadrant = quadrantSelect.value;
+    const duration = parseFloat(durationInput.value) || 0;
     const taskId = Date.now();
 
     if (!AppState.data.daily[dateKey]) {
@@ -283,7 +285,8 @@ function addTask() {
     const newTask = {
         id: taskId,
         text: taskText,
-        completed: false
+        completed: false,
+        duration: duration
     };
 
     // If a quadrant is selected, link to Eisenhower Matrix
@@ -297,7 +300,7 @@ function addTask() {
             text: taskText,
             completed: false,
             quadrant: quadrant,
-            duration: 0,
+            duration: duration,
             scheduledDate: dateKey,
             createdAt: new Date().toISOString()
         });
@@ -307,6 +310,7 @@ function addTask() {
 
     input.value = '';
     quadrantSelect.value = '';
+    durationInput.value = '';
     saveData();
     renderDailyTasks(dateKey);
 
@@ -626,7 +630,7 @@ function renderWeekGrid() {
         quadrantSelect.style.flex = '1';
         quadrantSelect.style.fontSize = '0.75rem';
         quadrantSelect.style.padding = '6px 8px';
-        quadrantSelect.style.minWidth = '120px';
+        quadrantSelect.style.minWidth = '100px';
         quadrantSelect.innerHTML = `
             <option value="">No Priority</option>
             <option value="urgent-important">🔥 U&I</option>
@@ -634,6 +638,16 @@ function renderWeekGrid() {
             <option value="urgent-not-important">⚡ UNI</option>
             <option value="not-urgent-not-important">🗑️ Low</option>
         `;
+
+        const durationInput = document.createElement('input');
+        durationInput.type = 'number';
+        durationInput.className = 'task-duration-input';
+        durationInput.placeholder = 'Hrs';
+        durationInput.min = '0';
+        durationInput.step = '0.5';
+        durationInput.style.fontSize = '0.75rem';
+        durationInput.style.padding = '6px 8px';
+        durationInput.style.width = '60px';
 
         const addBtn = document.createElement('button');
         addBtn.className = 'btn btn-add';
@@ -646,6 +660,7 @@ function renderWeekGrid() {
             if (!taskText) return;
 
             const quadrant = quadrantSelect.value;
+            const duration = parseFloat(durationInput.value) || 0;
             const taskId = Date.now();
 
             if (!AppState.data.daily[dateKey]) {
@@ -655,7 +670,8 @@ function renderWeekGrid() {
             const newTask = {
                 id: taskId,
                 text: taskText,
-                completed: false
+                completed: false,
+                duration: duration
             };
 
             // If a quadrant is selected, link to Eisenhower Matrix
@@ -669,7 +685,7 @@ function renderWeekGrid() {
                     text: taskText,
                     completed: false,
                     quadrant: quadrant,
-                    duration: 0,
+                    duration: duration,
                     scheduledDate: dateKey,
                     createdAt: new Date().toISOString()
                 });
@@ -679,6 +695,7 @@ function renderWeekGrid() {
 
             input.value = '';
             quadrantSelect.value = '';
+            durationInput.value = '';
             saveData();
             renderWeekGrid();
 
@@ -695,6 +712,7 @@ function renderWeekGrid() {
 
         taskInput.appendChild(input);
         taskInput.appendChild(quadrantSelect);
+        taskInput.appendChild(durationInput);
         taskInput.appendChild(addBtn);
 
         const taskList = document.createElement('ul');
@@ -1131,14 +1149,54 @@ function renderCalendar() {
 
         const day = document.createElement('div');
         day.className = 'calendar-day';
-        day.textContent = i;
+
+        const dayNumber = document.createElement('div');
+        dayNumber.className = 'calendar-day-number';
+        dayNumber.textContent = i;
+        day.appendChild(dayNumber);
 
         if (dateKey === today) {
             day.classList.add('today');
         }
 
-        if (AppState.data.daily[dateKey]?.tasks?.length > 0) {
+        const tasks = AppState.data.daily[dateKey]?.tasks || [];
+        if (tasks.length > 0) {
             day.classList.add('has-tasks');
+
+            const taskList = document.createElement('div');
+            taskList.className = 'calendar-day-tasks';
+
+            tasks.slice(0, 3).forEach(task => {
+                const taskDiv = document.createElement('div');
+                taskDiv.className = 'calendar-task';
+                if (task.completed) {
+                    taskDiv.classList.add('completed');
+                }
+
+                // Add quadrant indicator if present
+                if (task.quadrant) {
+                    const quadrantIcons = {
+                        'urgent-important': '🔥',
+                        'not-urgent-important': '📅',
+                        'urgent-not-important': '⚡',
+                        'not-urgent-not-important': '🗑️'
+                    };
+                    taskDiv.textContent = `${quadrantIcons[task.quadrant]} ${task.text}`;
+                } else {
+                    taskDiv.textContent = task.text;
+                }
+
+                taskList.appendChild(taskDiv);
+            });
+
+            if (tasks.length > 3) {
+                const more = document.createElement('div');
+                more.className = 'calendar-task-more';
+                more.textContent = `+${tasks.length - 3} more`;
+                taskList.appendChild(more);
+            }
+
+            day.appendChild(taskList);
         }
 
         day.addEventListener('click', () => {
@@ -1850,6 +1908,18 @@ function initImportExport() {
 }
 
 // ==================== Initialize App ====================
+// ==================== Sidebar Toggle ====================
+function initSidebarToggle() {
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebar = document.querySelector('.sidebar');
+    const mainContent = document.querySelector('.main-content');
+
+    sidebarToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+        mainContent.classList.toggle('expanded');
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
     initTabs();
@@ -1860,4 +1930,5 @@ document.addEventListener('DOMContentLoaded', () => {
     initNotes();
     initInsights();
     initImportExport();
+    initSidebarToggle();
 });

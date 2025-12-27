@@ -60,17 +60,65 @@ body {
     left: 0;
     top: 0;
     z-index: 100;
+    transition: width 0.3s ease;
 }
 
 .sidebar-header {
     padding: 24px 20px;
     border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .logo {
     display: flex;
     align-items: center;
     gap: 12px;
+}
+
+.hamburger {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: all 0.3s ease;
+}
+
+.hamburger span {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: var(--text-primary);
+    transition: all 0.3s ease;
+    border-radius: 2px;
+}
+
+.hamburger:hover span {
+    background: var(--accent-primary);
+}
+
+.sidebar.collapsed {
+    width: 70px;
+}
+
+.sidebar.collapsed .logo-text {
+    display: none;
+}
+
+.sidebar.collapsed .nav-text {
+    display: none;
+}
+
+.sidebar.collapsed .sidebar-btn span:last-child {
+    display: none;
+}
+
+.sidebar.collapsed + .main-content {
+    margin-left: 70px;
 }
 
 .logo-icon {
@@ -164,6 +212,11 @@ body {
     background: var(--bg-primary);
     min-height: 100vh;
     padding: 32px;
+    transition: margin-left 0.3s ease;
+}
+
+.main-content.expanded {
+    margin-left: 70px;
 }
 
 /* ==================== Tab Content ==================== */
@@ -449,6 +502,27 @@ select:focus {
     border-color: var(--accent-primary);
 }
 
+.task-duration-input {
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
+    width: 100px;
+    transition: all 0.2s ease;
+}
+
+.task-duration-input:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-hover);
+}
+
+.task-duration-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
 .task-list,
 .event-list,
 .goal-list {
@@ -631,17 +705,15 @@ select:focus {
 }
 
 .calendar-day {
-    aspect-ratio: 1;
-    padding: 10px;
+    min-height: 100px;
+    padding: 8px;
     background: var(--bg-secondary);
     border-radius: 8px;
-    text-align: center;
     cursor: pointer;
     transition: all 0.2s ease;
     position: relative;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
     color: var(--text-primary);
     font-size: 14px;
     font-weight: 500;
@@ -662,14 +734,44 @@ select:focus {
     opacity: 0.3;
 }
 
-.calendar-day.has-tasks::after {
-    content: '';
-    position: absolute;
-    bottom: 6px;
-    width: 4px;
-    height: 4px;
-    background: var(--accent-secondary);
-    border-radius: 50%;
+.calendar-day-number {
+    font-weight: 600;
+    margin-bottom: 4px;
+    text-align: left;
+}
+
+.calendar-day-tasks {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    overflow: hidden;
+}
+
+.calendar-task {
+    font-size: 11px;
+    background: var(--bg-primary);
+    padding: 3px 6px;
+    border-radius: 4px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: left;
+    border-left: 2px solid var(--accent-primary);
+}
+
+.calendar-task.completed {
+    opacity: 0.5;
+    text-decoration: line-through;
+}
+
+.calendar-task-more {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-style: italic;
+    text-align: left;
+    margin-top: 2px;
 }
 
 /* ==================== Eisenhower Matrix ==================== */
