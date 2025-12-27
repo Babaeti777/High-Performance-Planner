@@ -125,8 +125,7 @@ function initTabs() {
             // Refresh the view when switching tabs
             switch(targetTab) {
                 case 'daily':
-                    renderDailyPlanner();
-                    renderWeeklyPlanner();
+                    renderNewWeeklyView();
                     break;
                 case 'monthly':
                     renderMonthlyPlanner();
@@ -1921,8 +1920,7 @@ function initSidebarToggle() {
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
     initTabs();
-    initDailyPlanner();
-    initWeeklyPlanner();
+    initNewWeeklyPlanner();
     initMonthlyPlanner();
     initEisenhowerMatrix();
     initNotes();
@@ -1930,3 +1928,397 @@ document.addEventListener('DOMContentLoaded', () => {
     initImportExport();
     initSidebarToggle();
 });
+// New Weekly Planner Code to Replace Old Implementation
+// Insert this after line 147 in app.js, replacing initDailyPlanner and initWeeklyPlanner
+
+const TimerState = {
+    taskName: '',
+    startTime: null,
+    elapsed: 0,
+    running: false,
+    interval: null,
+    taskDuration: 0
+};
+
+function initNewWeeklyPlanner() {
+    if (!AppState.currentWeekStart) {
+        AppState.currentWeekStart = getWeekStart(new Date());
+    }
+
+    const prevWeek = document.getElementById('prevWeek');
+    const nextWeek = document.getElementById('nextWeek');
+    const thisWeekBtn = document.getElementById('thisWeekBtn');
+
+    if (prevWeek) {
+        prevWeek.addEventListener('click', () => {
+            AppState.currentWeekStart.setDate(AppState.currentWeekStart.getDate() - 7);
+            renderNewWeeklyView();
+        });
+    }
+
+    if (nextWeek) {
+        nextWeek.addEventListener('click', () => {
+            AppState.currentWeekStart.setDate(AppState.currentWeekStart.getDate() + 7);
+            renderNewWeeklyView();
+        });
+    }
+
+    if (thisWeekBtn) {
+        thisWeekBtn.addEventListener('click', () => {
+            AppState.currentWeekStart = getWeekStart(new Date());
+            renderNewWeeklyView();
+        });
+    }
+
+    initTaskModal();
+    initTimer();
+    renderNewWeeklyView();
+}
+
+function renderNewWeeklyView() {
+    const weekTitle = document.getElementById('weekTitle');
+    const weekDateRange = document.getElementById('weekDateRange');
+    const weekDaysContainer = document.getElementById('weekDaysContainer');
+
+    if (!weekTitle || !weekDateRange || !weekDaysContainer) return;
+
+    const today = formatDate(new Date());
+    const weekEnd = new Date(AppState.currentWeekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+
+    const isThisWeek = formatDate(AppState.currentWeekStart) <= today && today <= formatDate(weekEnd);
+
+    weekTitle.textContent = isThisWeek ? 'This Week' : 'Week of ' + AppState.currentWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    weekDateRange.textContent = AppState.currentWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' - ' + weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    weekDaysContainer.innerHTML = '';
+
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(AppState.currentWeekStart);
+        date.setDate(date.getDate() + i);
+        const dateKey = formatDate(date);
+
+        const dayCard = document.createElement('div');
+        dayCard.className = 'day-card';
+        if (dateKey === today) {
+            dayCard.classList.add('today');
+        }
+
+        const header = document.createElement('div');
+        header.className = 'day-card-header';
+
+        const dayInfo = document.createElement('div');
+        dayInfo.style.display = 'flex';
+        dayInfo.style.alignItems = 'center';
+
+        const dayNameEl = document.createElement('span');
+        dayNameEl.className = 'day-name';
+        dayNameEl.textContent = dayNames[i];
+
+        const dayDateEl = document.createElement('span');
+        dayDateEl.className = 'day-date';
+        dayDateEl.textContent = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+        dayInfo.appendChild(dayNameEl);
+        dayInfo.appendChild(dayDateEl);
+
+        const tasks = AppState.data.daily[dateKey]?.tasks || [];
+        const taskCount = document.createElement('span');
+        taskCount.className = 'day-task-count';
+        taskCount.textContent = tasks.length === 0 ? 'No tasks' : tasks.length + ' task' + (tasks.length > 1 ? 's' : '');
+
+        header.appendChild(dayInfo);
+        header.appendChild(taskCount);
+
+        const tasksList = document.createElement('div');
+        tasksList.className = 'day-tasks-list';
+
+        if (tasks.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'day-empty';
+            empty.textContent = 'No tasks planned';
+            tasksList.appendChild(empty);
+        } else {
+            tasks.forEach((task, index) => {
+                const taskItem = createTaskElement(task, index, tasks, dateKey);
+                tasksList.appendChild(taskItem);
+            });
+        }
+
+        dayCard.appendChild(header);
+        dayCard.appendChild(tasksList);
+        weekDaysContainer.appendChild(dayCard);
+    }
+}
+
+function createTaskElement(task, index, tasks, dateKey) {
+    const taskItem = document.createElement('div');
+    taskItem.className = 'day-task-item';
+    if (task.completed) {
+        taskItem.classList.add('completed');
+    }
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'task-checkbox';
+    checkbox.checked = task.completed;
+    checkbox.addEventListener('change', () => {
+        task.completed = checkbox.checked;
+        if (task.source === 'eisenhower' && task.quadrant) {
+            const eisenTask = AppState.data.eisenhower[task.quadrant]?.find(t => t.id === task.id);
+            if (eisenTask) {
+                eisenTask.completed = task.completed;
+            }
+        }
+        saveData();
+        renderNewWeeklyView();
+    });
+
+    const taskText = document.createElement('span');
+    taskText.className = 'task-text';
+    const priorityIcons = {
+        'urgent-important': '🔥 ',
+        'not-urgent-important': '📅 ',
+        'urgent-not-important': '⚡ ',
+        'not-urgent-not-important': '🗑️ '
+    };
+    const icon = task.quadrant ? priorityIcons[task.quadrant] : '';
+    taskText.textContent = icon + task.text;
+
+    taskItem.appendChild(checkbox);
+    taskItem.appendChild(taskText);
+
+    if (task.duration && task.duration > 0) {
+        const duration = document.createElement('span');
+        duration.className = 'task-duration';
+        duration.textContent = task.duration + 'h';
+        taskItem.appendChild(duration);
+    }
+
+    if (!task.completed) {
+        const startBtn = document.createElement('button');
+        startBtn.className = 'task-start-btn';
+        startBtn.textContent = '▶ Start';
+        startBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            startTaskTimer(task);
+        });
+        taskItem.appendChild(startBtn);
+    }
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'task-delete-btn';
+    deleteBtn.innerHTML = '🗑';
+    deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        tasks.splice(index, 1);
+        if (task.source === 'eisenhower' && task.quadrant) {
+            const eisenTasks = AppState.data.eisenhower[task.quadrant];
+            const eisenIndex = eisenTasks.findIndex(t => t.id === task.id);
+            if (eisenIndex !== -1) {
+                eisenTasks.splice(eisenIndex, 1);
+            }
+        }
+        saveData();
+        renderNewWeeklyView();
+    });
+
+    taskItem.appendChild(deleteBtn);
+    return taskItem;
+}
+
+function initTaskModal() {
+    const modal = document.getElementById('taskModal');
+    const floatingBtn = document.getElementById('floatingAddBtn');
+    const closeModal = document.getElementById('closeModal');
+    const cancelModal = document.getElementById('cancelModal');
+    const saveTask = document.getElementById('saveTask');
+    const modalTaskDay = document.getElementById('modalTaskDay');
+
+    if (!modal || !floatingBtn) return;
+
+    function populateDayOptions() {
+        modalTaskDay.innerHTML = '';
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(AppState.currentWeekStart);
+            date.setDate(date.getDate() + i);
+            const dateKey = formatDate(date);
+
+            const option = document.createElement('option');
+            option.value = dateKey;
+            option.textContent = dayNames[i] + ', ' + date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+            if (dateKey === formatDate(new Date())) {
+                option.selected = true;
+            }
+
+            modalTaskDay.appendChild(option);
+        }
+    }
+
+    floatingBtn.addEventListener('click', () => {
+        populateDayOptions();
+        modal.classList.remove('hidden');
+        document.getElementById('modalTaskName').focus();
+    });
+
+    const closeModalFn = () => {
+        modal.classList.add('hidden');
+        document.getElementById('modalTaskName').value = '';
+        document.getElementById('modalTaskPriority').value = '';
+        document.getElementById('modalTaskDuration').value = '';
+    };
+
+    closeModal.addEventListener('click', closeModalFn);
+    cancelModal.addEventListener('click', closeModalFn);
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeModalFn();
+        }
+    });
+
+    saveTask.addEventListener('click', () => {
+        const taskName = document.getElementById('modalTaskName').value.trim();
+        const dateKey = modalTaskDay.value;
+        const priority = document.getElementById('modalTaskPriority').value;
+        const duration = parseFloat(document.getElementById('modalTaskDuration').value) || 0;
+
+        if (!taskName) {
+            alert('Please enter a task name');
+            return;
+        }
+
+        const taskId = Date.now();
+
+        if (!AppState.data.daily[dateKey]) {
+            AppState.data.daily[dateKey] = { timeSlots: {}, tasks: [] };
+        }
+
+        const newTask = {
+            id: taskId,
+            text: taskName,
+            completed: false,
+            duration: duration
+        };
+
+        if (priority) {
+            newTask.source = 'eisenhower';
+            newTask.quadrant = priority;
+
+            AppState.data.eisenhower[priority].push({
+                id: taskId,
+                text: taskName,
+                completed: false,
+                quadrant: priority,
+                duration: duration,
+                scheduledDate: dateKey,
+                createdAt: new Date().toISOString()
+            });
+        }
+
+        AppState.data.daily[dateKey].tasks.push(newTask);
+        saveData();
+        renderNewWeeklyView();
+        closeModalFn();
+    });
+
+    document.getElementById('modalTaskName').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            saveTask.click();
+        }
+    });
+}
+
+function initTimer() {
+    const closeTimer = document.getElementById('closeTimer');
+    const pauseTimer = document.getElementById('pauseTimer');
+    const stopTimer = document.getElementById('stopTimer');
+
+    if (!closeTimer) return;
+
+    closeTimer.addEventListener('click', () => {
+        document.getElementById('timerWidget').classList.add('hidden');
+        pauseTimerFn();
+    });
+
+    pauseTimer.addEventListener('click', () => {
+        if (TimerState.running) {
+            pauseTimerFn();
+            pauseTimer.textContent = '▶ Resume';
+        } else {
+            resumeTimerFn();
+            pauseTimer.textContent = '⏸ Pause';
+        }
+    });
+
+    stopTimer.addEventListener('click', () => {
+        stopTimerFn();
+        document.getElementById('timerWidget').classList.add('hidden');
+    });
+}
+
+function startTaskTimer(task) {
+    TimerState.taskName = task.text;
+    TimerState.startTime = Date.now();
+    TimerState.elapsed = 0;
+    TimerState.running = true;
+    TimerState.taskDuration = task.duration || 0;
+
+    const timerWidget = document.getElementById('timerWidget');
+    const timerTaskName = document.getElementById('timerTaskName');
+    const pauseTimer = document.getElementById('pauseTimer');
+
+    timerWidget.classList.remove('hidden');
+    timerTaskName.textContent = task.text;
+    pauseTimer.textContent = '⏸ Pause';
+
+    updateTimer();
+    TimerState.interval = setInterval(updateTimer, 1000);
+}
+
+function updateTimer() {
+    if (!TimerState.running) return;
+
+    const now = Date.now();
+    TimerState.elapsed = Math.floor((now - TimerState.startTime) / 1000);
+
+    const minutes = Math.floor(TimerState.elapsed / 60);
+    const seconds = TimerState.elapsed % 60;
+
+    const timerDisplay = document.getElementById('timerDisplay');
+    timerDisplay.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+
+    if (TimerState.taskDuration > 0) {
+        const progressCircle = document.getElementById('progressCircle');
+        const totalSeconds = TimerState.taskDuration * 3600;
+        const progress = Math.min(TimerState.elapsed / totalSeconds, 1);
+        const dashOffset = 565.48 * (1 - progress);
+        progressCircle.style.strokeDashoffset = dashOffset;
+    }
+}
+
+function pauseTimerFn() {
+    TimerState.running = false;
+    if (TimerState.interval) {
+        clearInterval(TimerState.interval);
+    }
+}
+
+function resumeTimerFn() {
+    TimerState.running = true;
+    TimerState.startTime = Date.now() - (TimerState.elapsed * 1000);
+    TimerState.interval = setInterval(updateTimer, 1000);
+}
+
+function stopTimerFn() {
+    pauseTimerFn();
+    TimerState.taskName = '';
+    TimerState.elapsed = 0;
+    document.getElementById('timerDisplay').textContent = '00:00';
+    document.getElementById('progressCircle').style.strokeDashoffset = 565.48;
+}
