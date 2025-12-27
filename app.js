@@ -624,18 +624,49 @@ function renderWeekGrid() {
         taskList.className = 'task-list';
 
         const tasks = AppState.data.daily[dateKey]?.tasks || [];
-        tasks.slice(0, 5).forEach(task => {
+        tasks.forEach((task, index) => {
             const li = document.createElement('li');
             li.className = `task-item ${task.completed ? 'completed' : ''}`;
             li.style.fontSize = '0.85rem';
             li.style.padding = '8px';
             li.style.display = 'flex';
-            li.style.flexDirection = 'column';
-            li.style.gap = '3px';
+            li.style.alignItems = 'center';
+            li.style.gap = '8px';
+
+            // Checkbox for completion
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'task-checkbox';
+            checkbox.checked = task.completed;
+            checkbox.style.cursor = 'pointer';
+            checkbox.addEventListener('change', () => {
+                task.completed = checkbox.checked;
+
+                // Sync to Eisenhower if applicable
+                if (task.source === 'eisenhower' && task.quadrant) {
+                    const eisenTask = AppState.data.eisenhower[task.quadrant]?.find(t => t.id === task.id);
+                    if (eisenTask) {
+                        eisenTask.completed = task.completed;
+                    }
+                }
+
+                saveData();
+                renderWeekGrid();
+            });
+
+            const contentContainer = document.createElement('div');
+            contentContainer.style.flex = '1';
+            contentContainer.style.display = 'flex';
+            contentContainer.style.flexDirection = 'column';
+            contentContainer.style.gap = '3px';
 
             const taskText = document.createElement('span');
             taskText.textContent = task.text;
-            li.appendChild(taskText);
+            if (task.completed) {
+                taskText.style.textDecoration = 'line-through';
+                taskText.style.opacity = '0.6';
+            }
+            contentContainer.appendChild(taskText);
 
             // Show badges if from Eisenhower
             if (task.source === 'eisenhower' && task.quadrant) {
@@ -665,9 +696,34 @@ function renderWeekGrid() {
                     badgeContainer.appendChild(durationBadge);
                 }
 
-                li.appendChild(badgeContainer);
+                contentContainer.appendChild(badgeContainer);
             }
 
+            // Delete button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.textContent = '×';
+            deleteBtn.style.fontSize = '1.2rem';
+            deleteBtn.style.padding = '2px 8px';
+            deleteBtn.style.minWidth = 'auto';
+            deleteBtn.addEventListener('click', () => {
+                tasks.splice(index, 1);
+
+                // Sync to Eisenhower if applicable
+                if (task.source === 'eisenhower' && task.quadrant) {
+                    const eisenTask = AppState.data.eisenhower[task.quadrant]?.find(t => t.id === task.id);
+                    if (eisenTask) {
+                        eisenTask.scheduledDate = null;
+                    }
+                }
+
+                saveData();
+                renderWeekGrid();
+            });
+
+            li.appendChild(checkbox);
+            li.appendChild(contentContainer);
+            li.appendChild(deleteBtn);
             taskList.appendChild(li);
         });
 
