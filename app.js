@@ -268,23 +268,52 @@ function renderTimeSlots(dateKey) {
 
 function addTask() {
     const input = document.getElementById('dailyTaskInput');
+    const quadrantSelect = document.getElementById('dailyTaskQuadrant');
     const taskText = input.value.trim();
     if (!taskText) return;
 
     const dateKey = formatDate(AppState.currentDate);
+    const quadrant = quadrantSelect.value;
+    const taskId = Date.now();
+
     if (!AppState.data.daily[dateKey]) {
         AppState.data.daily[dateKey] = { timeSlots: {}, tasks: [] };
     }
 
-    AppState.data.daily[dateKey].tasks.push({
-        id: Date.now(),
+    const newTask = {
+        id: taskId,
         text: taskText,
         completed: false
-    });
+    };
+
+    // If a quadrant is selected, link to Eisenhower Matrix
+    if (quadrant) {
+        newTask.source = 'eisenhower';
+        newTask.quadrant = quadrant;
+
+        // Add to Eisenhower Matrix as well
+        AppState.data.eisenhower[quadrant].push({
+            id: taskId,
+            text: taskText,
+            completed: false,
+            quadrant: quadrant,
+            duration: 0,
+            scheduledDate: dateKey,
+            createdAt: new Date().toISOString()
+        });
+    }
+
+    AppState.data.daily[dateKey].tasks.push(newTask);
 
     input.value = '';
+    quadrantSelect.value = '';
     saveData();
     renderDailyTasks(dateKey);
+
+    // Refresh Eisenhower if a quadrant was selected
+    if (quadrant) {
+        renderEisenhowerMatrix();
+    }
 }
 
 function renderDailyTasks(dateKey) {
@@ -583,33 +612,80 @@ function renderWeekGrid() {
 
         const taskInput = document.createElement('div');
         taskInput.className = 'task-input-group';
+        taskInput.style.flexWrap = 'wrap';
 
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'task-input';
         input.placeholder = 'Add task...';
+        input.style.flex = '1 1 100%';
+        input.style.marginBottom = '4px';
+
+        const quadrantSelect = document.createElement('select');
+        quadrantSelect.className = 'task-quadrant-select';
+        quadrantSelect.style.flex = '1';
+        quadrantSelect.style.fontSize = '0.75rem';
+        quadrantSelect.style.padding = '6px 8px';
+        quadrantSelect.style.minWidth = '120px';
+        quadrantSelect.innerHTML = `
+            <option value="">No Priority</option>
+            <option value="urgent-important">🔥 U&I</option>
+            <option value="not-urgent-important">📅 NUI</option>
+            <option value="urgent-not-important">⚡ UNI</option>
+            <option value="not-urgent-not-important">🗑️ Low</option>
+        `;
 
         const addBtn = document.createElement('button');
         addBtn.className = 'btn btn-add';
         addBtn.textContent = '+';
+        addBtn.style.padding = '6px 12px';
+        addBtn.style.fontSize = '0.9rem';
 
         const addTaskToDay = () => {
             const taskText = input.value.trim();
             if (!taskText) return;
 
+            const quadrant = quadrantSelect.value;
+            const taskId = Date.now();
+
             if (!AppState.data.daily[dateKey]) {
                 AppState.data.daily[dateKey] = { timeSlots: {}, tasks: [] };
             }
 
-            AppState.data.daily[dateKey].tasks.push({
-                id: Date.now(),
+            const newTask = {
+                id: taskId,
                 text: taskText,
                 completed: false
-            });
+            };
+
+            // If a quadrant is selected, link to Eisenhower Matrix
+            if (quadrant) {
+                newTask.source = 'eisenhower';
+                newTask.quadrant = quadrant;
+
+                // Add to Eisenhower Matrix as well
+                AppState.data.eisenhower[quadrant].push({
+                    id: taskId,
+                    text: taskText,
+                    completed: false,
+                    quadrant: quadrant,
+                    duration: 0,
+                    scheduledDate: dateKey,
+                    createdAt: new Date().toISOString()
+                });
+            }
+
+            AppState.data.daily[dateKey].tasks.push(newTask);
 
             input.value = '';
+            quadrantSelect.value = '';
             saveData();
             renderWeekGrid();
+
+            // Refresh Eisenhower if a quadrant was selected
+            if (quadrant) {
+                renderEisenhowerMatrix();
+            }
         };
 
         addBtn.addEventListener('click', addTaskToDay);
@@ -618,6 +694,7 @@ function renderWeekGrid() {
         });
 
         taskInput.appendChild(input);
+        taskInput.appendChild(quadrantSelect);
         taskInput.appendChild(addBtn);
 
         const taskList = document.createElement('ul');

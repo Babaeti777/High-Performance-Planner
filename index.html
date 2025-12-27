@@ -18,7 +18,7 @@
             </div>
 
             <nav class="sidebar-nav">
-                <button class="nav-item active" data-tab="daily">
+                <button class="nav-item" data-tab="daily">
                     <span class="nav-icon">📆</span>
                     <span class="nav-text">Daily</span>
                 </button>
@@ -30,7 +30,7 @@
                     <span class="nav-icon">📅</span>
                     <span class="nav-text">Monthly</span>
                 </button>
-                <button class="nav-item" data-tab="eisenhower">
+                <button class="nav-item active" data-tab="eisenhower">
                     <span class="nav-icon">🎯</span>
                     <span class="nav-text">Matrix</span>
                 </button>
@@ -59,7 +59,7 @@
         <main class="main-content">
 
         <!-- Daily Planner Tab -->
-        <div id="daily" class="tab-content active">
+        <div id="daily" class="tab-content">
             <div class="planner-header">
                 <button id="prevDay" class="btn btn-nav">← Previous</button>
                 <input type="date" id="dailyDate" class="date-picker">
@@ -79,6 +79,13 @@
                     <h3>✓ Tasks</h3>
                     <div class="task-input-group">
                         <input type="text" id="dailyTaskInput" placeholder="Add a task..." class="task-input">
+                        <select id="dailyTaskQuadrant" class="task-quadrant-select">
+                            <option value="">No Priority</option>
+                            <option value="urgent-important">🔥 Urgent & Important</option>
+                            <option value="not-urgent-important">📅 Not Urgent & Important</option>
+                            <option value="urgent-not-important">⚡ Urgent & Not Important</option>
+                            <option value="not-urgent-not-important">🗑️ Not Urgent & Not Important</option>
+                        </select>
                         <button id="addDailyTask" class="btn btn-add">+</button>
                     </div>
                     <ul id="dailyTaskList" class="task-list"></ul>
@@ -184,7 +191,7 @@
         </div>
 
         <!-- Eisenhower Matrix Tab -->
-        <div id="eisenhower" class="tab-content">
+        <div id="eisenhower" class="tab-content active">
             <h2>📊 Eisenhower Matrix</h2>
             <p class="matrix-description">Prioritize tasks by urgency and importance, add duration, and schedule them</p>
 

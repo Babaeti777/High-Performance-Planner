@@ -427,6 +427,28 @@ select:focus {
     flex: 1;
 }
 
+.task-quadrant-select {
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 180px;
+}
+
+.task-quadrant-select:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-hover);
+}
+
+.task-quadrant-select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
 .task-list,
 .event-list,
 .goal-list {
