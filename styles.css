@@ -226,6 +226,447 @@ body {
     margin: 60px 0 20px 0;
 }
 
+/* ==================== Week Header ==================== */
+.week-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 32px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    margin-bottom: 32px;
+}
+
+.week-info {
+    text-align: center;
+    flex: 1;
+}
+
+.week-info h2 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: var(--text-primary);
+}
+
+.week-range {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* ==================== Timer Widget ==================== */
+.timer-widget {
+    position: fixed;
+    top: 50%;
+    right: 40px;
+    transform: translateY(-50%);
+    background: var(--bg-card);
+    border: 2px solid var(--accent-primary);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    z-index: 200;
+    width: 280px;
+    transition: all 0.3s ease;
+}
+
+.timer-widget.hidden {
+    display: none;
+}
+
+.timer-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 50%;
+    color: var(--text-secondary);
+    font-size: 20px;
+    transition: all 0.2s ease;
+}
+
+.timer-close:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.timer-task-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: center;
+    margin-bottom: 20px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.stopwatch-container {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    margin: 0 auto 24px;
+}
+
+.stopwatch-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.stopwatch-bg {
+    fill: none;
+    stroke: var(--bg-secondary);
+    stroke-width: 8;
+}
+
+.stopwatch-progress {
+    fill: none;
+    stroke: var(--accent-primary);
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-dasharray: 565.48;
+    stroke-dashoffset: 565.48;
+    transition: stroke-dashoffset 1s linear;
+}
+
+.timer-display {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--accent-primary);
+    font-family: 'Courier New', monospace;
+}
+
+.timer-controls {
+    display: flex;
+    gap: 12px;
+}
+
+.timer-controls button {
+    flex: 1;
+    padding: 10px;
+    font-size: 14px;
+}
+
+/* ==================== Week Days Container ==================== */
+.week-days-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.day-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px 24px;
+    transition: all 0.3s ease;
+    min-height: 80px;
+}
+
+.day-card.today {
+    border-color: var(--accent-primary);
+    background: linear-gradient(135deg, var(--bg-card) 0%, rgba(99, 102, 241, 0.1) 100%);
+}
+
+.day-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.day-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.day-date {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-left: 12px;
+}
+
+.day-task-count {
+    font-size: 13px;
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+    padding: 4px 12px;
+    border-radius: 12px;
+}
+
+.day-tasks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.day-task-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.day-task-item:hover {
+    background: var(--bg-hover);
+    transform: translateX(4px);
+}
+
+.day-task-item.completed {
+    opacity: 0.6;
+}
+
+.day-task-item.completed .task-text {
+    text-decoration: line-through;
+}
+
+.task-text {
+    flex: 1;
+    font-size: 15px;
+    color: var(--text-primary);
+}
+
+.task-duration {
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+.task-start-btn {
+    padding: 6px 16px;
+    background: var(--accent-primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.task-start-btn:hover {
+    background: var(--accent-hover);
+    transform: scale(1.05);
+}
+
+.task-delete-btn {
+    padding: 6px 12px;
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s ease;
+}
+
+.task-delete-btn:hover {
+    background: var(--accent-danger);
+    color: white;
+}
+
+.day-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+/* ==================== Floating Add Button ==================== */
+.floating-add-btn {
+    position: fixed;
+    bottom: 40px;
+    right: 40px;
+    width: 64px;
+    height: 64px;
+    background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-hover) 100%);
+    border: none;
+    border-radius: 50%;
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    z-index: 100;
+}
+
+.floating-add-btn:hover {
+    width: 160px;
+    border-radius: 32px;
+    box-shadow: 0 6px 28px rgba(99, 102, 241, 0.6);
+}
+
+.floating-add-btn .plus-icon {
+    font-size: 32px;
+    color: white;
+    font-weight: 300;
+    transition: all 0.3s ease;
+}
+
+.floating-add-btn .btn-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+    opacity: 0;
+    max-width: 0;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.floating-add-btn:hover .btn-text {
+    opacity: 1;
+    max-width: 100px;
+    margin-left: 8px;
+}
+
+/* ==================== Modal ==================== */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-content {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 16px 64px rgba(0, 0, 0, 0.5);
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(40px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 28px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.modal-close {
+    width: 36px;
+    height: 36px;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 24px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.modal-close:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.modal-body {
+    padding: 28px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.form-input,
+.form-select {
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 15px;
+    transition: all 0.2s ease;
+}
+
+.form-input:focus,
+.form-select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    background: var(--bg-primary);
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.modal-footer {
+    padding: 20px 28px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
 /* ==================== Tab Content ==================== */
 .tab-content {
     display: none;

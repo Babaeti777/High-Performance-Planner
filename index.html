@@ -61,90 +61,84 @@
 
         <!-- Daily & Weekly Planner Tab -->
         <div id="daily" class="tab-content">
-            <h2 style="margin-bottom: 24px;">📆 Daily View</h2>
-            <div class="planner-header">
-                <button id="prevDay" class="btn btn-nav">← Previous</button>
-                <input type="date" id="dailyDate" class="date-picker">
-                <button id="nextDay" class="btn btn-nav">Next →</button>
-                <button id="todayBtn" class="btn btn-primary">Today</button>
+            <!-- Week Navigation Header -->
+            <div class="week-header">
+                <button id="prevWeek" class="btn btn-nav">← Previous Week</button>
+                <div class="week-info">
+                    <h2 id="weekTitle">This Week</h2>
+                    <p id="weekDateRange" class="week-range"></p>
+                </div>
+                <button id="nextWeek" class="btn btn-nav">Next Week →</button>
+                <button id="thisWeekBtn" class="btn btn-primary">Today</button>
             </div>
 
-            <div class="holiday-display" id="dailyHoliday"></div>
-
-            <div class="daily-grid">
-                <div class="time-schedule">
-                    <h3>⏰ Schedule</h3>
-                    <div id="timeSlots" class="time-slots"></div>
+            <!-- Stopwatch Timer Component -->
+            <div id="timerWidget" class="timer-widget hidden">
+                <div class="timer-close" id="closeTimer">✕</div>
+                <div class="timer-task-name" id="timerTaskName">Task Name</div>
+                <div class="stopwatch-container">
+                    <svg class="stopwatch-svg" viewBox="0 0 200 200">
+                        <circle class="stopwatch-bg" cx="100" cy="100" r="90"/>
+                        <circle class="stopwatch-progress" cx="100" cy="100" r="90" id="progressCircle"/>
+                    </svg>
+                    <div class="timer-display" id="timerDisplay">00:00</div>
                 </div>
+                <div class="timer-controls">
+                    <button id="pauseTimer" class="btn btn-secondary">⏸ Pause</button>
+                    <button id="stopTimer" class="btn btn-danger">⏹ Stop</button>
+                </div>
+            </div>
 
-                <div class="daily-tasks">
-                    <h3>✓ Tasks</h3>
-                    <div class="task-input-group" style="flex-wrap: wrap;">
-                        <input type="text" id="dailyTaskInput" placeholder="Add a task..." class="task-input" style="flex: 1 1 100%; margin-bottom: 8px;">
-                        <select id="dailyTaskQuadrant" class="task-quadrant-select">
-                            <option value="">No Priority</option>
-                            <option value="urgent-important">🔥 Urgent & Important</option>
-                            <option value="not-urgent-important">📅 Not Urgent & Important</option>
-                            <option value="urgent-not-important">⚡ Urgent & Not Important</option>
-                            <option value="not-urgent-not-important">🗑️ Not Urgent & Not Important</option>
+            <!-- Vertical Week Days List -->
+            <div class="week-days-container" id="weekDaysContainer">
+                <!-- Week days will be dynamically generated here -->
+            </div>
+
+            <!-- Floating Add Task Button -->
+            <button class="floating-add-btn" id="floatingAddBtn">
+                <span class="plus-icon">+</span>
+                <span class="btn-text">Add Task</span>
+            </button>
+        </div>
+
+        <!-- Task Modal Popup -->
+        <div id="taskModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Add New Task</h3>
+                    <button class="modal-close" id="closeModal">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Task Name</label>
+                        <input type="text" id="modalTaskName" class="form-input" placeholder="Enter task name..." autofocus>
+                    </div>
+                    <div class="form-group">
+                        <label>Select Day</label>
+                        <select id="modalTaskDay" class="form-select">
+                            <!-- Days will be populated dynamically -->
                         </select>
-                        <input type="number" id="dailyTaskDuration" placeholder="Hours" class="task-duration-input" min="0" step="0.5">
-                        <button id="addDailyTask" class="btn btn-add">+</button>
                     </div>
-                    <ul id="dailyTaskList" class="task-list"></ul>
-                </div>
-
-                <div class="daily-events">
-                    <h3>🎯 Important Events</h3>
-                    <div class="event-input-group">
-                        <input type="text" id="dailyEventInput" placeholder="Add important event..." class="event-input">
-                        <button id="addDailyEvent" class="btn btn-add">+</button>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Priority</label>
+                            <select id="modalTaskPriority" class="form-select">
+                                <option value="">None</option>
+                                <option value="urgent-important">🔥 Urgent & Important</option>
+                                <option value="not-urgent-important">📅 Not Urgent & Important</option>
+                                <option value="urgent-not-important">⚡ Urgent & Not Important</option>
+                                <option value="not-urgent-not-important">🗑️ Low Priority</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Duration (hours)</label>
+                            <input type="number" id="modalTaskDuration" class="form-input" placeholder="2.5" min="0" step="0.5">
+                        </div>
                     </div>
-                    <ul id="dailyEventList" class="event-list"></ul>
                 </div>
-            </div>
-
-            <div class="lessons-section">
-                <h3>💡 Lessons Learned Today</h3>
-                <textarea id="dailyLessons" placeholder="What did you learn today?" class="lessons-textarea"></textarea>
-                <button id="saveDailyLessons" class="btn btn-primary">Save Lessons</button>
-            </div>
-
-            <!-- Weekly View Section -->
-            <div class="weekly-section">
-                <div class="section-divider"></div>
-                <h2 style="margin-bottom: 24px; margin-top: 40px;">📊 Weekly View</h2>
-                <div class="planner-header">
-                    <button id="prevWeek" class="btn btn-nav">← Previous Week</button>
-                    <div class="week-display" id="weekDisplay"></div>
-                    <button id="nextWeek" class="btn btn-nav">Next Week →</button>
-                    <button id="thisWeekBtn" class="btn btn-primary">This Week</button>
-                </div>
-
-                <div class="holiday-display" id="weeklyHoliday"></div>
-
-                <div class="weekly-grid" id="weeklyGrid">
-                    <!-- Days of the week will be generated here -->
-                </div>
-
-                <div class="eisenhower-scheduled">
-                    <h3>📊 Scheduled Tasks from Eisenhower Matrix</h3>
-                    <div id="weeklyEisenhowerTasks" class="scheduled-tasks-container"></div>
-                </div>
-
-                <div class="weekly-events">
-                    <h3>🎯 Important Events This Week</h3>
-                    <div class="event-input-group">
-                        <input type="text" id="weeklyEventInput" placeholder="Add weekly event..." class="event-input">
-                        <button id="addWeeklyEvent" class="btn btn-add">+</button>
-                    </div>
-                    <ul id="weeklyEventList" class="event-list"></ul>
-                </div>
-
-                <div class="lessons-section">
-                    <h3>💡 Lessons Learned This Week</h3>
-                    <textarea id="weeklyLessons" placeholder="What did you learn this week?" class="lessons-textarea"></textarea>
-                    <button id="saveWeeklyLessons" class="btn btn-primary">Save Lessons</button>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="cancelModal">Cancel</button>
+                    <button class="btn btn-primary" id="saveTask">Add Task</button>
                 </div>
             </div>
         </div>
