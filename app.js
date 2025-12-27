@@ -1,0 +1,1294 @@
+// ==================== High-Performance Planner App ====================
+// Global state management
+const AppState = {
+    currentDate: new Date(),
+    currentWeekStart: null,
+    currentMonth: new Date().getMonth(),
+    currentYear: new Date().getFullYear(),
+    selectedNote: null,
+    eventFilter: 'all',
+    data: {
+        daily: {},
+        weekly: {},
+        monthly: {},
+        eisenhower: {
+            'urgent-important': [],
+            'not-urgent-important': [],
+            'urgent-not-important': [],
+            'not-urgent-not-important': []
+        },
+        notes: [],
+        lessons: {
+            daily: {},
+            weekly: {},
+            monthly: {}
+        },
+        events: {
+            daily: {},
+            weekly: {},
+            monthly: {}
+        }
+    }
+};
+
+// ==================== Utility Functions ====================
+function formatDate(date) {
+    return date.toISOString().split('T')[0];
+}
+
+function formatDateDisplay(date) {
+    return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function getWeekStart(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day;
+    return new Date(d.setDate(diff));
+}
+
+function getWeekKey(date) {
+    const weekStart = getWeekStart(date);
+    return formatDate(weekStart);
+}
+
+function getMonthKey(month, year) {
+    return `${year}-${String(month + 1).padStart(2, '0')}`;
+}
+
+function saveData() {
+    localStorage.setItem('plannerData', JSON.stringify(AppState.data));
+}
+
+function loadData() {
+    const saved = localStorage.getItem('plannerData');
+    if (saved) {
+        AppState.data = JSON.parse(saved);
+    }
+}
+
+// ==================== Holiday Data ====================
+const holidays = {
+    '2025-01-01': 'New Year\'s Day',
+    '2025-01-20': 'Martin Luther King Jr. Day',
+    '2025-02-14': 'Valentine\'s Day',
+    '2025-02-17': 'Presidents\' Day',
+    '2025-03-17': 'St. Patrick\'s Day',
+    '2025-04-20': 'Easter Sunday',
+    '2025-05-11': 'Mother\'s Day',
+    '2025-05-26': 'Memorial Day',
+    '2025-06-15': 'Father\'s Day',
+    '2025-06-19': 'Juneteenth',
+    '2025-07-04': 'Independence Day',
+    '2025-09-01': 'Labor Day',
+    '2025-10-13': 'Columbus Day',
+    '2025-10-31': 'Halloween',
+    '2025-11-11': 'Veterans Day',
+    '2025-11-27': 'Thanksgiving',
+    '2025-12-25': 'Christmas Day',
+    '2025-12-31': 'New Year\'s Eve'
+};
+
+function getHoliday(date) {
+    const key = formatDate(date);
+    return holidays[key];
+}
+
+function getHolidaysInRange(startDate, endDate) {
+    const result = [];
+    for (const [date, name] of Object.entries(holidays)) {
+        const holidayDate = new Date(date);
+        if (holidayDate >= startDate && holidayDate <= endDate) {
+            result.push({ date: holidayDate, name });
+        }
+    }
+    return result;
+}
+
+// ==================== Tab Navigation ====================
+function initTabs() {
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const targetTab = button.dataset.tab;
+
+            // Remove active class from all tabs and contents
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+
+            // Add active class to clicked tab and corresponding content
+            button.classList.add('active');
+            document.getElementById(targetTab).classList.add('active');
+
+            // Refresh the view when switching tabs
+            switch(targetTab) {
+                case 'daily':
+                    renderDailyPlanner();
+                    break;
+                case 'weekly':
+                    renderWeeklyPlanner();
+                    break;
+                case 'monthly':
+                    renderMonthlyPlanner();
+                    break;
+                case 'eisenhower':
+                    renderEisenhowerMatrix();
+                    break;
+                case 'notes':
+                    renderNotes();
+                    break;
+                case 'insights':
+                    renderInsights();
+                    break;
+            }
+        });
+    });
+}
+
+// ==================== Daily Planner ====================
+function initDailyPlanner() {
+    const dailyDate = document.getElementById('dailyDate');
+    const prevDay = document.getElementById('prevDay');
+    const nextDay = document.getElementById('nextDay');
+    const todayBtn = document.getElementById('todayBtn');
+    const addDailyTask = document.getElementById('addDailyTask');
+    const dailyTaskInput = document.getElementById('dailyTaskInput');
+    const addDailyEvent = document.getElementById('addDailyEvent');
+    const dailyEventInput = document.getElementById('dailyEventInput');
+    const saveDailyLessons = document.getElementById('saveDailyLessons');
+
+    dailyDate.value = formatDate(AppState.currentDate);
+
+    dailyDate.addEventListener('change', (e) => {
+        AppState.currentDate = new Date(e.target.value + 'T00:00:00');
+        renderDailyPlanner();
+    });
+
+    prevDay.addEventListener('click', () => {
+        AppState.currentDate.setDate(AppState.currentDate.getDate() - 1);
+        dailyDate.value = formatDate(AppState.currentDate);
+        renderDailyPlanner();
+    });
+
+    nextDay.addEventListener('click', () => {
+        AppState.currentDate.setDate(AppState.currentDate.getDate() + 1);
+        dailyDate.value = formatDate(AppState.currentDate);
+        renderDailyPlanner();
+    });
+
+    todayBtn.addEventListener('click', () => {
+        AppState.currentDate = new Date();
+        dailyDate.value = formatDate(AppState.currentDate);
+        renderDailyPlanner();
+    });
+
+    addDailyTask.addEventListener('click', () => addTask());
+    dailyTaskInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addTask();
+    });
+
+    addDailyEvent.addEventListener('click', () => addDailyEventHandler());
+    dailyEventInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addDailyEventHandler();
+    });
+
+    saveDailyLessons.addEventListener('click', saveDailyLessonsHandler);
+
+    renderDailyPlanner();
+}
+
+function renderDailyPlanner() {
+    const dateKey = formatDate(AppState.currentDate);
+
+    // Display holiday if any
+    const holiday = getHoliday(AppState.currentDate);
+    const holidayDisplay = document.getElementById('dailyHoliday');
+    if (holiday) {
+        holidayDisplay.textContent = `🎉 ${holiday}`;
+        holidayDisplay.classList.add('visible');
+    } else {
+        holidayDisplay.classList.remove('visible');
+    }
+
+    // Render time slots
+    renderTimeSlots(dateKey);
+
+    // Render tasks
+    renderDailyTasks(dateKey);
+
+    // Render events
+    renderDailyEvents(dateKey);
+
+    // Load lessons
+    const lessonsTextarea = document.getElementById('dailyLessons');
+    lessonsTextarea.value = AppState.data.lessons.daily[dateKey] || '';
+}
+
+function renderTimeSlots(dateKey) {
+    const timeSlotsContainer = document.getElementById('timeSlots');
+    timeSlotsContainer.innerHTML = '';
+
+    if (!AppState.data.daily[dateKey]) {
+        AppState.data.daily[dateKey] = { timeSlots: {}, tasks: [] };
+    }
+
+    const timeSlots = AppState.data.daily[dateKey].timeSlots || {};
+
+    for (let hour = 6; hour < 23; hour++) {
+        const timeStr = `${String(hour).padStart(2, '0')}:00`;
+        const slot = document.createElement('div');
+        slot.className = 'time-slot';
+
+        const timeLabel = document.createElement('span');
+        timeLabel.className = 'time-slot-time';
+        timeLabel.textContent = timeStr;
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'time-slot-input';
+        input.placeholder = 'What are you doing?';
+        input.value = timeSlots[timeStr] || '';
+        input.dataset.time = timeStr;
+
+        input.addEventListener('blur', (e) => {
+            if (!AppState.data.daily[dateKey].timeSlots) {
+                AppState.data.daily[dateKey].timeSlots = {};
+            }
+            AppState.data.daily[dateKey].timeSlots[timeStr] = e.target.value;
+            saveData();
+        });
+
+        slot.appendChild(timeLabel);
+        slot.appendChild(input);
+        timeSlotsContainer.appendChild(slot);
+    }
+}
+
+function addTask() {
+    const input = document.getElementById('dailyTaskInput');
+    const taskText = input.value.trim();
+    if (!taskText) return;
+
+    const dateKey = formatDate(AppState.currentDate);
+    if (!AppState.data.daily[dateKey]) {
+        AppState.data.daily[dateKey] = { timeSlots: {}, tasks: [] };
+    }
+
+    AppState.data.daily[dateKey].tasks.push({
+        id: Date.now(),
+        text: taskText,
+        completed: false
+    });
+
+    input.value = '';
+    saveData();
+    renderDailyTasks(dateKey);
+}
+
+function renderDailyTasks(dateKey) {
+    const taskList = document.getElementById('dailyTaskList');
+    taskList.innerHTML = '';
+
+    const tasks = AppState.data.daily[dateKey]?.tasks || [];
+
+    tasks.forEach(task => {
+        const li = document.createElement('li');
+        li.className = `task-item ${task.completed ? 'completed' : ''}`;
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'task-checkbox';
+        checkbox.checked = task.completed;
+        checkbox.addEventListener('change', () => {
+            task.completed = checkbox.checked;
+            saveData();
+            renderDailyTasks(dateKey);
+        });
+
+        const text = document.createElement('span');
+        text.className = 'task-text';
+        text.textContent = task.text;
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.addEventListener('click', () => {
+            const index = tasks.indexOf(task);
+            tasks.splice(index, 1);
+            saveData();
+            renderDailyTasks(dateKey);
+        });
+
+        li.appendChild(checkbox);
+        li.appendChild(text);
+        li.appendChild(deleteBtn);
+        taskList.appendChild(li);
+    });
+}
+
+function addDailyEventHandler() {
+    const input = document.getElementById('dailyEventInput');
+    const eventText = input.value.trim();
+    if (!eventText) return;
+
+    const dateKey = formatDate(AppState.currentDate);
+    if (!AppState.data.events.daily[dateKey]) {
+        AppState.data.events.daily[dateKey] = [];
+    }
+
+    AppState.data.events.daily[dateKey].push({
+        id: Date.now(),
+        text: eventText,
+        date: AppState.currentDate.toISOString()
+    });
+
+    input.value = '';
+    saveData();
+    renderDailyEvents(dateKey);
+}
+
+function renderDailyEvents(dateKey) {
+    const eventList = document.getElementById('dailyEventList');
+    eventList.innerHTML = '';
+
+    const events = AppState.data.events.daily[dateKey] || [];
+
+    events.forEach(event => {
+        const li = document.createElement('li');
+        li.className = 'event-item';
+
+        const text = document.createElement('span');
+        text.className = 'task-text';
+        text.textContent = event.text;
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.addEventListener('click', () => {
+            const index = events.indexOf(event);
+            events.splice(index, 1);
+            saveData();
+            renderDailyEvents(dateKey);
+        });
+
+        li.appendChild(text);
+        li.appendChild(deleteBtn);
+        eventList.appendChild(li);
+    });
+}
+
+function saveDailyLessonsHandler() {
+    const textarea = document.getElementById('dailyLessons');
+    const dateKey = formatDate(AppState.currentDate);
+    AppState.data.lessons.daily[dateKey] = textarea.value;
+    saveData();
+    alert('Lessons saved successfully!');
+}
+
+// ==================== Weekly Planner ====================
+function initWeeklyPlanner() {
+    AppState.currentWeekStart = getWeekStart(new Date());
+
+    const prevWeek = document.getElementById('prevWeek');
+    const nextWeek = document.getElementById('nextWeek');
+    const thisWeekBtn = document.getElementById('thisWeekBtn');
+    const addWeeklyEvent = document.getElementById('addWeeklyEvent');
+    const weeklyEventInput = document.getElementById('weeklyEventInput');
+    const saveWeeklyLessons = document.getElementById('saveWeeklyLessons');
+
+    prevWeek.addEventListener('click', () => {
+        AppState.currentWeekStart.setDate(AppState.currentWeekStart.getDate() - 7);
+        renderWeeklyPlanner();
+    });
+
+    nextWeek.addEventListener('click', () => {
+        AppState.currentWeekStart.setDate(AppState.currentWeekStart.getDate() + 7);
+        renderWeeklyPlanner();
+    });
+
+    thisWeekBtn.addEventListener('click', () => {
+        AppState.currentWeekStart = getWeekStart(new Date());
+        renderWeeklyPlanner();
+    });
+
+    addWeeklyEvent.addEventListener('click', () => addWeeklyEventHandler());
+    weeklyEventInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addWeeklyEventHandler();
+    });
+
+    saveWeeklyLessons.addEventListener('click', saveWeeklyLessonsHandler);
+
+    renderWeeklyPlanner();
+}
+
+function renderWeeklyPlanner() {
+    const weekKey = getWeekKey(AppState.currentWeekStart);
+    const weekEnd = new Date(AppState.currentWeekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+
+    // Update week display
+    const weekDisplay = document.getElementById('weekDisplay');
+    weekDisplay.textContent = `${AppState.currentWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
+    // Display holidays
+    const holidaysInWeek = getHolidaysInRange(AppState.currentWeekStart, weekEnd);
+    const holidayDisplay = document.getElementById('weeklyHoliday');
+    if (holidaysInWeek.length > 0) {
+        holidayDisplay.textContent = `🎉 ${holidaysInWeek.map(h => h.name).join(', ')}`;
+        holidayDisplay.classList.add('visible');
+    } else {
+        holidayDisplay.classList.remove('visible');
+    }
+
+    // Render week grid
+    renderWeekGrid();
+
+    // Render weekly events
+    renderWeeklyEvents(weekKey);
+
+    // Load lessons
+    const lessonsTextarea = document.getElementById('weeklyLessons');
+    lessonsTextarea.value = AppState.data.lessons.weekly[weekKey] || '';
+}
+
+function renderWeekGrid() {
+    const weeklyGrid = document.getElementById('weeklyGrid');
+    weeklyGrid.innerHTML = '';
+
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const today = formatDate(new Date());
+
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(AppState.currentWeekStart);
+        date.setDate(date.getDate() + i);
+        const dateKey = formatDate(date);
+
+        const dayDiv = document.createElement('div');
+        dayDiv.className = 'week-day';
+        if (dateKey === today) {
+            dayDiv.classList.add('today');
+        }
+
+        const header = document.createElement('div');
+        header.className = 'week-day-header';
+
+        const dayName = document.createElement('div');
+        dayName.className = 'week-day-name';
+        dayName.textContent = days[i];
+
+        const dayDate = document.createElement('div');
+        dayDate.className = 'week-day-date';
+        dayDate.textContent = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+        header.appendChild(dayName);
+        header.appendChild(dayDate);
+
+        const taskInput = document.createElement('div');
+        taskInput.className = 'task-input-group';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'task-input';
+        input.placeholder = 'Add task...';
+
+        const addBtn = document.createElement('button');
+        addBtn.className = 'btn btn-add';
+        addBtn.textContent = '+';
+
+        const addTaskToDay = () => {
+            const taskText = input.value.trim();
+            if (!taskText) return;
+
+            if (!AppState.data.daily[dateKey]) {
+                AppState.data.daily[dateKey] = { timeSlots: {}, tasks: [] };
+            }
+
+            AppState.data.daily[dateKey].tasks.push({
+                id: Date.now(),
+                text: taskText,
+                completed: false
+            });
+
+            input.value = '';
+            saveData();
+            renderWeekGrid();
+        };
+
+        addBtn.addEventListener('click', addTaskToDay);
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addTaskToDay();
+        });
+
+        taskInput.appendChild(input);
+        taskInput.appendChild(addBtn);
+
+        const taskList = document.createElement('ul');
+        taskList.className = 'task-list';
+
+        const tasks = AppState.data.daily[dateKey]?.tasks || [];
+        tasks.slice(0, 5).forEach(task => {
+            const li = document.createElement('li');
+            li.className = `task-item ${task.completed ? 'completed' : ''}`;
+            li.textContent = task.text;
+            li.style.fontSize = '0.85rem';
+            li.style.padding = '8px';
+            taskList.appendChild(li);
+        });
+
+        dayDiv.appendChild(header);
+        dayDiv.appendChild(taskInput);
+        dayDiv.appendChild(taskList);
+        weeklyGrid.appendChild(dayDiv);
+    }
+}
+
+function addWeeklyEventHandler() {
+    const input = document.getElementById('weeklyEventInput');
+    const eventText = input.value.trim();
+    if (!eventText) return;
+
+    const weekKey = getWeekKey(AppState.currentWeekStart);
+    if (!AppState.data.events.weekly[weekKey]) {
+        AppState.data.events.weekly[weekKey] = [];
+    }
+
+    AppState.data.events.weekly[weekKey].push({
+        id: Date.now(),
+        text: eventText,
+        date: AppState.currentWeekStart.toISOString()
+    });
+
+    input.value = '';
+    saveData();
+    renderWeeklyEvents(weekKey);
+}
+
+function renderWeeklyEvents(weekKey) {
+    const eventList = document.getElementById('weeklyEventList');
+    eventList.innerHTML = '';
+
+    const events = AppState.data.events.weekly[weekKey] || [];
+
+    events.forEach(event => {
+        const li = document.createElement('li');
+        li.className = 'event-item';
+
+        const text = document.createElement('span');
+        text.className = 'task-text';
+        text.textContent = event.text;
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.addEventListener('click', () => {
+            const index = events.indexOf(event);
+            events.splice(index, 1);
+            saveData();
+            renderWeeklyEvents(weekKey);
+        });
+
+        li.appendChild(text);
+        li.appendChild(deleteBtn);
+        eventList.appendChild(li);
+    });
+}
+
+function saveWeeklyLessonsHandler() {
+    const textarea = document.getElementById('weeklyLessons');
+    const weekKey = getWeekKey(AppState.currentWeekStart);
+    AppState.data.lessons.weekly[weekKey] = textarea.value;
+    saveData();
+    alert('Lessons saved successfully!');
+}
+
+// ==================== Monthly Planner ====================
+function initMonthlyPlanner() {
+    const prevMonth = document.getElementById('prevMonth');
+    const nextMonth = document.getElementById('nextMonth');
+    const thisMonthBtn = document.getElementById('thisMonthBtn');
+    const monthSelect = document.getElementById('monthSelect');
+    const yearSelect = document.getElementById('yearSelect');
+    const addMonthlyGoal = document.getElementById('addMonthlyGoal');
+    const monthlyGoalInput = document.getElementById('monthlyGoalInput');
+    const addMonthlyEvent = document.getElementById('addMonthlyEvent');
+    const monthlyEventInput = document.getElementById('monthlyEventInput');
+    const saveMonthlyLessons = document.getElementById('saveMonthlyLessons');
+
+    // Populate month select
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    months.forEach((month, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        option.textContent = month;
+        monthSelect.appendChild(option);
+    });
+
+    // Populate year select
+    const currentYear = new Date().getFullYear();
+    for (let year = currentYear - 5; year <= currentYear + 5; year++) {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = year;
+        yearSelect.appendChild(option);
+    }
+
+    monthSelect.value = AppState.currentMonth;
+    yearSelect.value = AppState.currentYear;
+
+    monthSelect.addEventListener('change', (e) => {
+        AppState.currentMonth = parseInt(e.target.value);
+        renderMonthlyPlanner();
+    });
+
+    yearSelect.addEventListener('change', (e) => {
+        AppState.currentYear = parseInt(e.target.value);
+        renderMonthlyPlanner();
+    });
+
+    prevMonth.addEventListener('click', () => {
+        AppState.currentMonth--;
+        if (AppState.currentMonth < 0) {
+            AppState.currentMonth = 11;
+            AppState.currentYear--;
+        }
+        monthSelect.value = AppState.currentMonth;
+        yearSelect.value = AppState.currentYear;
+        renderMonthlyPlanner();
+    });
+
+    nextMonth.addEventListener('click', () => {
+        AppState.currentMonth++;
+        if (AppState.currentMonth > 11) {
+            AppState.currentMonth = 0;
+            AppState.currentYear++;
+        }
+        monthSelect.value = AppState.currentMonth;
+        yearSelect.value = AppState.currentYear;
+        renderMonthlyPlanner();
+    });
+
+    thisMonthBtn.addEventListener('click', () => {
+        AppState.currentMonth = new Date().getMonth();
+        AppState.currentYear = new Date().getFullYear();
+        monthSelect.value = AppState.currentMonth;
+        yearSelect.value = AppState.currentYear;
+        renderMonthlyPlanner();
+    });
+
+    addMonthlyGoal.addEventListener('click', () => addMonthlyGoalHandler());
+    monthlyGoalInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addMonthlyGoalHandler();
+    });
+
+    addMonthlyEvent.addEventListener('click', () => addMonthlyEventHandler());
+    monthlyEventInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addMonthlyEventHandler();
+    });
+
+    saveMonthlyLessons.addEventListener('click', saveMonthlyLessonsHandler);
+
+    renderMonthlyPlanner();
+}
+
+function renderMonthlyPlanner() {
+    const monthKey = getMonthKey(AppState.currentMonth, AppState.currentYear);
+
+    // Display holidays
+    const firstDay = new Date(AppState.currentYear, AppState.currentMonth, 1);
+    const lastDay = new Date(AppState.currentYear, AppState.currentMonth + 1, 0);
+    const holidaysInMonth = getHolidaysInRange(firstDay, lastDay);
+    const holidayDisplay = document.getElementById('monthlyHoliday');
+    if (holidaysInMonth.length > 0) {
+        holidayDisplay.textContent = `🎉 ${holidaysInMonth.map(h => h.name).join(', ')}`;
+        holidayDisplay.classList.add('visible');
+    } else {
+        holidayDisplay.classList.remove('visible');
+    }
+
+    // Render calendar
+    renderCalendar();
+
+    // Render monthly goals
+    renderMonthlyGoals(monthKey);
+
+    // Render monthly events
+    renderMonthlyEvents(monthKey);
+
+    // Load lessons
+    const lessonsTextarea = document.getElementById('monthlyLessons');
+    lessonsTextarea.value = AppState.data.lessons.monthly[monthKey] || '';
+}
+
+function renderCalendar() {
+    const calendar = document.getElementById('calendar');
+    calendar.innerHTML = '';
+
+    // Create header
+    const header = document.createElement('div');
+    header.className = 'calendar-header';
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    dayNames.forEach(name => {
+        const dayName = document.createElement('div');
+        dayName.className = 'calendar-day-name';
+        dayName.textContent = name;
+        header.appendChild(dayName);
+    });
+    calendar.appendChild(header);
+
+    // Create grid
+    const grid = document.createElement('div');
+    grid.className = 'calendar-grid';
+
+    const firstDay = new Date(AppState.currentYear, AppState.currentMonth, 1);
+    const lastDay = new Date(AppState.currentYear, AppState.currentMonth + 1, 0);
+    const prevLastDay = new Date(AppState.currentYear, AppState.currentMonth, 0);
+
+    const firstDayOfWeek = firstDay.getDay();
+    const daysInMonth = lastDay.getDate();
+    const daysInPrevMonth = prevLastDay.getDate();
+
+    const today = formatDate(new Date());
+
+    // Previous month days
+    for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+        const day = document.createElement('div');
+        day.className = 'calendar-day other-month';
+        day.textContent = daysInPrevMonth - i;
+        grid.appendChild(day);
+    }
+
+    // Current month days
+    for (let i = 1; i <= daysInMonth; i++) {
+        const date = new Date(AppState.currentYear, AppState.currentMonth, i);
+        const dateKey = formatDate(date);
+
+        const day = document.createElement('div');
+        day.className = 'calendar-day';
+        day.textContent = i;
+
+        if (dateKey === today) {
+            day.classList.add('today');
+        }
+
+        if (AppState.data.daily[dateKey]?.tasks?.length > 0) {
+            day.classList.add('has-tasks');
+        }
+
+        day.addEventListener('click', () => {
+            AppState.currentDate = date;
+            document.getElementById('dailyDate').value = dateKey;
+            document.querySelector('[data-tab="daily"]').click();
+        });
+
+        grid.appendChild(day);
+    }
+
+    // Next month days
+    const totalCells = firstDayOfWeek + daysInMonth;
+    const remainingCells = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+    for (let i = 1; i <= remainingCells; i++) {
+        const day = document.createElement('div');
+        day.className = 'calendar-day other-month';
+        day.textContent = i;
+        grid.appendChild(day);
+    }
+
+    calendar.appendChild(grid);
+}
+
+function addMonthlyGoalHandler() {
+    const input = document.getElementById('monthlyGoalInput');
+    const goalText = input.value.trim();
+    if (!goalText) return;
+
+    const monthKey = getMonthKey(AppState.currentMonth, AppState.currentYear);
+    if (!AppState.data.monthly[monthKey]) {
+        AppState.data.monthly[monthKey] = { goals: [] };
+    }
+
+    AppState.data.monthly[monthKey].goals.push({
+        id: Date.now(),
+        text: goalText,
+        completed: false
+    });
+
+    input.value = '';
+    saveData();
+    renderMonthlyGoals(monthKey);
+}
+
+function renderMonthlyGoals(monthKey) {
+    const goalList = document.getElementById('monthlyGoalList');
+    goalList.innerHTML = '';
+
+    const goals = AppState.data.monthly[monthKey]?.goals || [];
+
+    goals.forEach(goal => {
+        const li = document.createElement('li');
+        li.className = `goal-item ${goal.completed ? 'completed' : ''}`;
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'task-checkbox';
+        checkbox.checked = goal.completed;
+        checkbox.addEventListener('change', () => {
+            goal.completed = checkbox.checked;
+            saveData();
+            renderMonthlyGoals(monthKey);
+        });
+
+        const text = document.createElement('span');
+        text.className = 'task-text';
+        text.textContent = goal.text;
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.addEventListener('click', () => {
+            const index = goals.indexOf(goal);
+            goals.splice(index, 1);
+            saveData();
+            renderMonthlyGoals(monthKey);
+        });
+
+        li.appendChild(checkbox);
+        li.appendChild(text);
+        li.appendChild(deleteBtn);
+        goalList.appendChild(li);
+    });
+}
+
+function addMonthlyEventHandler() {
+    const input = document.getElementById('monthlyEventInput');
+    const eventText = input.value.trim();
+    if (!eventText) return;
+
+    const monthKey = getMonthKey(AppState.currentMonth, AppState.currentYear);
+    if (!AppState.data.events.monthly[monthKey]) {
+        AppState.data.events.monthly[monthKey] = [];
+    }
+
+    AppState.data.events.monthly[monthKey].push({
+        id: Date.now(),
+        text: eventText,
+        date: new Date(AppState.currentYear, AppState.currentMonth, 1).toISOString()
+    });
+
+    input.value = '';
+    saveData();
+    renderMonthlyEvents(monthKey);
+}
+
+function renderMonthlyEvents(monthKey) {
+    const eventList = document.getElementById('monthlyEventList');
+    eventList.innerHTML = '';
+
+    const events = AppState.data.events.monthly[monthKey] || [];
+
+    events.forEach(event => {
+        const li = document.createElement('li');
+        li.className = 'event-item';
+
+        const text = document.createElement('span');
+        text.className = 'task-text';
+        text.textContent = event.text;
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.addEventListener('click', () => {
+            const index = events.indexOf(event);
+            events.splice(index, 1);
+            saveData();
+            renderMonthlyEvents(monthKey);
+        });
+
+        li.appendChild(text);
+        li.appendChild(deleteBtn);
+        eventList.appendChild(li);
+    });
+}
+
+function saveMonthlyLessonsHandler() {
+    const textarea = document.getElementById('monthlyLessons');
+    const monthKey = getMonthKey(AppState.currentMonth, AppState.currentYear);
+    AppState.data.lessons.monthly[monthKey] = textarea.value;
+    saveData();
+    alert('Lessons saved successfully!');
+}
+
+// ==================== Eisenhower Matrix ====================
+function initEisenhowerMatrix() {
+    const addButtons = document.querySelectorAll('.add-matrix-task');
+
+    addButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const quadrant = button.dataset.quadrant;
+            const input = document.querySelector(`.matrix-input[data-quadrant="${quadrant}"]`);
+            const taskText = input.value.trim();
+
+            if (!taskText) return;
+
+            AppState.data.eisenhower[quadrant].push({
+                id: Date.now(),
+                text: taskText,
+                completed: false
+            });
+
+            input.value = '';
+            saveData();
+            renderEisenhowerMatrix();
+        });
+
+        const input = document.querySelector(`.matrix-input[data-quadrant="${button.dataset.quadrant}"]`);
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                button.click();
+            }
+        });
+    });
+
+    renderEisenhowerMatrix();
+}
+
+function renderEisenhowerMatrix() {
+    const quadrants = ['urgent-important', 'not-urgent-important', 'urgent-not-important', 'not-urgent-not-important'];
+
+    quadrants.forEach(quadrant => {
+        const taskList = document.querySelector(`.matrix-task-list[data-quadrant="${quadrant}"]`);
+        taskList.innerHTML = '';
+
+        const tasks = AppState.data.eisenhower[quadrant] || [];
+
+        tasks.forEach(task => {
+            const li = document.createElement('li');
+            li.className = 'matrix-task-item';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'task-checkbox';
+            checkbox.checked = task.completed;
+            checkbox.addEventListener('change', () => {
+                task.completed = checkbox.checked;
+                li.style.opacity = task.completed ? '0.6' : '1';
+                li.style.textDecoration = task.completed ? 'line-through' : 'none';
+                saveData();
+            });
+
+            const text = document.createElement('span');
+            text.className = 'task-text';
+            text.textContent = task.text;
+            text.style.flex = '1';
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.addEventListener('click', () => {
+                const index = tasks.indexOf(task);
+                tasks.splice(index, 1);
+                saveData();
+                renderEisenhowerMatrix();
+            });
+
+            if (task.completed) {
+                li.style.opacity = '0.6';
+                li.style.textDecoration = 'line-through';
+            }
+
+            li.appendChild(checkbox);
+            li.appendChild(text);
+            li.appendChild(deleteBtn);
+            taskList.appendChild(li);
+        });
+    });
+}
+
+// ==================== Notes ====================
+function initNotes() {
+    const addNote = document.getElementById('addNote');
+    const noteTitle = document.getElementById('noteTitle');
+
+    addNote.addEventListener('click', () => {
+        const title = noteTitle.value.trim() || 'Untitled Note';
+
+        const newNote = {
+            id: Date.now(),
+            title: title,
+            content: '',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
+        AppState.data.notes.unshift(newNote);
+        AppState.selectedNote = newNote.id;
+        noteTitle.value = '';
+        saveData();
+        renderNotes();
+    });
+
+    renderNotes();
+}
+
+function renderNotes() {
+    const notesList = document.getElementById('notesList');
+    const noteEditor = document.getElementById('noteEditor');
+
+    // Render notes list
+    notesList.innerHTML = '';
+    AppState.data.notes.forEach(note => {
+        const noteItem = document.createElement('div');
+        noteItem.className = `note-item ${note.id === AppState.selectedNote ? 'active' : ''}`;
+
+        const noteItemTitle = document.createElement('div');
+        noteItemTitle.className = 'note-item-title';
+        noteItemTitle.textContent = note.title;
+
+        const noteItemDate = document.createElement('div');
+        noteItemDate.className = 'note-item-date';
+        noteItemDate.textContent = new Date(note.createdAt).toLocaleDateString();
+
+        noteItem.appendChild(noteItemTitle);
+        noteItem.appendChild(noteItemDate);
+
+        noteItem.addEventListener('click', () => {
+            AppState.selectedNote = note.id;
+            renderNotes();
+        });
+
+        notesList.appendChild(noteItem);
+    });
+
+    // Render note editor
+    if (AppState.selectedNote) {
+        const note = AppState.data.notes.find(n => n.id === AppState.selectedNote);
+        if (note) {
+            noteEditor.innerHTML = `
+                <div class="note-editor-title">${note.title}</div>
+                <div class="note-editor-date">Last updated: ${new Date(note.updatedAt).toLocaleString()}</div>
+                <textarea class="note-editor-content" placeholder="Start writing...">${note.content}</textarea>
+                <div class="note-actions">
+                    <button class="btn btn-primary save-note-btn">Save</button>
+                    <button class="btn btn-secondary delete-note-btn">Delete Note</button>
+                </div>
+            `;
+
+            const textarea = noteEditor.querySelector('.note-editor-content');
+            const saveBtn = noteEditor.querySelector('.save-note-btn');
+            const deleteBtn = noteEditor.querySelector('.delete-note-btn');
+
+            saveBtn.addEventListener('click', () => {
+                note.content = textarea.value;
+                note.updatedAt = new Date().toISOString();
+                saveData();
+                alert('Note saved successfully!');
+                renderNotes();
+            });
+
+            deleteBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to delete this note?')) {
+                    const index = AppState.data.notes.indexOf(note);
+                    AppState.data.notes.splice(index, 1);
+                    AppState.selectedNote = null;
+                    saveData();
+                    renderNotes();
+                }
+            });
+        }
+    } else {
+        noteEditor.innerHTML = '<p class="empty-state">Select a note or create a new one</p>';
+    }
+}
+
+// ==================== Insights & Events ====================
+function initInsights() {
+    const filterButtons = document.querySelectorAll('.filter-btn');
+
+    filterButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            AppState.eventFilter = button.dataset.filter;
+            renderInsights();
+        });
+    });
+
+    renderInsights();
+}
+
+function renderInsights() {
+    renderAllLessons();
+    renderAllEvents();
+}
+
+function renderAllLessons() {
+    const lessonsDisplay = document.getElementById('allLessons');
+    lessonsDisplay.innerHTML = '';
+
+    const allLessons = [];
+
+    // Collect all lessons
+    Object.entries(AppState.data.lessons.daily).forEach(([date, content]) => {
+        if (content.trim()) {
+            allLessons.push({ date: new Date(date), content, type: 'Daily' });
+        }
+    });
+
+    Object.entries(AppState.data.lessons.weekly).forEach(([date, content]) => {
+        if (content.trim()) {
+            allLessons.push({ date: new Date(date), content, type: 'Weekly' });
+        }
+    });
+
+    Object.entries(AppState.data.lessons.monthly).forEach(([date, content]) => {
+        if (content.trim()) {
+            allLessons.push({ date: new Date(date + '-01'), content, type: 'Monthly' });
+        }
+    });
+
+    // Sort by date (newest first)
+    allLessons.sort((a, b) => b.date - a.date);
+
+    if (allLessons.length === 0) {
+        lessonsDisplay.innerHTML = '<p class="empty-state">No lessons learned yet. Start documenting your insights!</p>';
+        return;
+    }
+
+    allLessons.forEach(lesson => {
+        const entry = document.createElement('div');
+        entry.className = 'lesson-entry';
+
+        const date = document.createElement('div');
+        date.className = 'lesson-date';
+        date.textContent = `${lesson.type} - ${lesson.date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        })}`;
+
+        const content = document.createElement('div');
+        content.className = 'lesson-content';
+        content.textContent = lesson.content;
+
+        entry.appendChild(date);
+        entry.appendChild(content);
+        lessonsDisplay.appendChild(entry);
+    });
+}
+
+function renderAllEvents() {
+    const eventsDisplay = document.getElementById('allEvents');
+    eventsDisplay.innerHTML = '';
+
+    const allEvents = [];
+
+    // Collect all events based on filter
+    if (AppState.eventFilter === 'all' || AppState.eventFilter === 'daily') {
+        Object.entries(AppState.data.events.daily).forEach(([date, events]) => {
+            events.forEach(event => {
+                allEvents.push({ ...event, type: 'Daily', date: new Date(event.date) });
+            });
+        });
+    }
+
+    if (AppState.eventFilter === 'all' || AppState.eventFilter === 'weekly') {
+        Object.entries(AppState.data.events.weekly).forEach(([date, events]) => {
+            events.forEach(event => {
+                allEvents.push({ ...event, type: 'Weekly', date: new Date(event.date) });
+            });
+        });
+    }
+
+    if (AppState.eventFilter === 'all' || AppState.eventFilter === 'monthly') {
+        Object.entries(AppState.data.events.monthly).forEach(([date, events]) => {
+            events.forEach(event => {
+                allEvents.push({ ...event, type: 'Monthly', date: new Date(event.date) });
+            });
+        });
+    }
+
+    // Sort by date (newest first)
+    allEvents.sort((a, b) => b.date - a.date);
+
+    if (allEvents.length === 0) {
+        eventsDisplay.innerHTML = '<p class="empty-state">No important events recorded yet.</p>';
+        return;
+    }
+
+    allEvents.forEach(event => {
+        const entry = document.createElement('div');
+        entry.className = 'event-entry';
+
+        const date = document.createElement('div');
+        date.className = 'event-date';
+        date.textContent = `${event.type} - ${event.date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        })}`;
+
+        const content = document.createElement('div');
+        content.className = 'event-content';
+        content.textContent = event.text;
+
+        entry.appendChild(date);
+        entry.appendChild(content);
+        eventsDisplay.appendChild(entry);
+    });
+}
+
+// ==================== Import/Export ====================
+function initImportExport() {
+    const exportBtn = document.getElementById('exportData');
+    const importBtn = document.getElementById('importData');
+    const importFile = document.getElementById('importFile');
+
+    exportBtn.addEventListener('click', () => {
+        const dataStr = JSON.stringify(AppState.data, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `planner-data-${formatDate(new Date())}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+    });
+
+    importBtn.addEventListener('click', () => {
+        importFile.click();
+    });
+
+    importFile.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const importedData = JSON.parse(event.target.result);
+                if (confirm('This will replace all current data. Are you sure?')) {
+                    AppState.data = importedData;
+                    saveData();
+                    location.reload();
+                }
+            } catch (error) {
+                alert('Error importing data. Please check the file format.');
+            }
+        };
+        reader.readAsText(file);
+    });
+}
+
+// ==================== Initialize App ====================
+document.addEventListener('DOMContentLoaded', () => {
+    loadData();
+    initTabs();
+    initDailyPlanner();
+    initWeeklyPlanner();
+    initMonthlyPlanner();
+    initEisenhowerMatrix();
+    initNotes();
+    initInsights();
+    initImportExport();
+});

@@ -1,0 +1,928 @@
+/* ==================== Reset & Base Styles ==================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary-color: #4a90e2;
+    --secondary-color: #50c878;
+    --danger-color: #e74c3c;
+    --warning-color: #f39c12;
+    --dark: #2c3e50;
+    --light: #ecf0f1;
+    --border: #bdc3c7;
+    --shadow: rgba(0, 0, 0, 0.1);
+    --urgent-important: #ff6b6b;
+    --not-urgent-important: #4ecdc4;
+    --urgent-not-important: #ffe66d;
+    --not-urgent-not-important: #95e1d3;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: var(--dark);
+}
+
+/* ==================== Container ==================== */
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px var(--shadow);
+    overflow: hidden;
+}
+
+/* ==================== Header ==================== */
+header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+}
+
+.header-controls {
+    display: flex;
+    gap: 10px;
+}
+
+/* ==================== Navigation Tabs ==================== */
+.tabs {
+    display: flex;
+    background: var(--light);
+    border-bottom: 2px solid var(--border);
+    overflow-x: auto;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 18px 24px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--dark);
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+}
+
+.tab-btn:hover {
+    background: rgba(74, 144, 226, 0.1);
+}
+
+.tab-btn.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+    background: white;
+}
+
+/* ==================== Tab Content ==================== */
+.tab-content {
+    display: none;
+    padding: 30px;
+    animation: fadeIn 0.3s ease;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ==================== Buttons ==================== */
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px var(--shadow);
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #357abd;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+.btn-secondary {
+    background: var(--secondary-color);
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #45b369;
+}
+
+.btn-nav {
+    background: var(--light);
+    color: var(--dark);
+}
+
+.btn-nav:hover {
+    background: var(--border);
+}
+
+.btn-add {
+    background: var(--secondary-color);
+    color: white;
+    padding: 10px 18px;
+    font-size: 1.2rem;
+}
+
+.btn-add:hover {
+    background: #45b369;
+}
+
+/* ==================== Planner Header ==================== */
+.planner-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.date-picker {
+    padding: 10px 20px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--dark);
+}
+
+.week-display,
+.month-display {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.month-select,
+.year-select {
+    padding: 10px 15px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--dark);
+    cursor: pointer;
+}
+
+/* ==================== Holiday Display ==================== */
+.holiday-display {
+    background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    font-weight: 600;
+    text-align: center;
+    display: none;
+}
+
+.holiday-display.visible {
+    display: block;
+}
+
+/* ==================== Daily Planner ==================== */
+.daily-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.time-schedule,
+.daily-tasks,
+.daily-events {
+    background: var(--light);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+.time-schedule h3,
+.daily-tasks h3,
+.daily-events h3 {
+    margin-bottom: 15px;
+    color: var(--primary-color);
+}
+
+.time-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.time-slot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: white;
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
+}
+
+.time-slot-time {
+    font-weight: 700;
+    color: var(--primary-color);
+    min-width: 80px;
+}
+
+.time-slot-input {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.95rem;
+}
+
+/* ==================== Tasks & Events ==================== */
+.task-input-group,
+.event-input-group,
+.goal-input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.task-input,
+.event-input,
+.goal-input {
+    flex: 1;
+    padding: 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.task-input:focus,
+.event-input:focus,
+.goal-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.task-list,
+.event-list,
+.goal-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.task-item,
+.event-item,
+.goal-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: white;
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
+    transition: all 0.3s ease;
+}
+
+.task-item:hover,
+.event-item:hover,
+.goal-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+.task-item.completed {
+    opacity: 0.6;
+    text-decoration: line-through;
+    border-left-color: var(--secondary-color);
+}
+
+.task-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.task-text {
+    flex: 1;
+    font-size: 0.95rem;
+}
+
+.delete-btn {
+    background: var(--danger-color);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
+}
+
+.delete-btn:hover {
+    background: #c0392b;
+}
+
+/* ==================== Lessons Section ==================== */
+.lessons-section {
+    background: var(--light);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+.lessons-section h3 {
+    margin-bottom: 15px;
+    color: var(--primary-color);
+}
+
+.lessons-textarea {
+    width: 100%;
+    min-height: 120px;
+    padding: 15px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    resize: vertical;
+    margin-bottom: 15px;
+}
+
+.lessons-textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+/* ==================== Weekly Planner ==================== */
+.weekly-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.week-day {
+    background: var(--light);
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+.week-day-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border);
+}
+
+.week-day-name {
+    font-weight: 700;
+    color: var(--primary-color);
+    font-size: 1.1rem;
+}
+
+.week-day-date {
+    color: var(--dark);
+    font-size: 0.9rem;
+}
+
+.week-day.today {
+    background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+    border: 2px solid var(--primary-color);
+}
+
+.weekly-events {
+    background: var(--light);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px var(--shadow);
+    margin-bottom: 30px;
+}
+
+/* ==================== Monthly Planner ==================== */
+.calendar {
+    background: var(--light);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px var(--shadow);
+    margin-bottom: 30px;
+}
+
+.calendar-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.calendar-day-name {
+    text-align: center;
+    font-weight: 700;
+    color: var(--primary-color);
+    padding: 10px;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 10px;
+}
+
+.calendar-day {
+    aspect-ratio: 1;
+    padding: 10px;
+    background: white;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.calendar-day:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+.calendar-day.today {
+    background: var(--primary-color);
+    color: white;
+    font-weight: 700;
+}
+
+.calendar-day.other-month {
+    opacity: 0.3;
+}
+
+.calendar-day.has-tasks::after {
+    content: '';
+    position: absolute;
+    bottom: 5px;
+    width: 6px;
+    height: 6px;
+    background: var(--secondary-color);
+    border-radius: 50%;
+}
+
+.monthly-goals,
+.monthly-events {
+    background: var(--light);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px var(--shadow);
+    margin-bottom: 30px;
+}
+
+.monthly-goals h3,
+.monthly-events h3 {
+    margin-bottom: 15px;
+    color: var(--primary-color);
+}
+
+/* ==================== Eisenhower Matrix ==================== */
+.matrix-description {
+    text-align: center;
+    color: #666;
+    margin-bottom: 30px;
+    font-size: 1.1rem;
+}
+
+.eisenhower-matrix {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.matrix-quadrant {
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px var(--shadow);
+    min-height: 400px;
+}
+
+.matrix-quadrant h3 {
+    margin-bottom: 8px;
+    font-size: 1.2rem;
+}
+
+.quadrant-desc {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.urgent-important {
+    background: linear-gradient(135deg, #ff6b6b20 0%, #ff6b6b40 100%);
+    border-left: 5px solid var(--urgent-important);
+}
+
+.not-urgent-important {
+    background: linear-gradient(135deg, #4ecdc420 0%, #4ecdc440 100%);
+    border-left: 5px solid var(--not-urgent-important);
+}
+
+.urgent-not-important {
+    background: linear-gradient(135deg, #ffe66d20 0%, #ffe66d40 100%);
+    border-left: 5px solid var(--urgent-not-important);
+}
+
+.not-urgent-not-important {
+    background: linear-gradient(135deg, #95e1d320 0%, #95e1d340 100%);
+    border-left: 5px solid var(--not-urgent-not-important);
+}
+
+.matrix-input {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.95rem;
+}
+
+.matrix-task-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 15px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.matrix-task-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: white;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.matrix-task-item:hover {
+    transform: translateX(5px);
+}
+
+/* ==================== Notes ==================== */
+.notes-controls {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.note-title-input {
+    flex: 1;
+    padding: 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.notes-container {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 20px;
+    min-height: 500px;
+}
+
+.notes-sidebar {
+    background: var(--light);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px var(--shadow);
+    overflow-y: auto;
+}
+
+.note-item {
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.note-item:hover {
+    transform: translateX(5px);
+    border-left-color: var(--primary-color);
+}
+
+.note-item.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+.note-item-title {
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+
+.note-item-date {
+    font-size: 0.85rem;
+    opacity: 0.7;
+}
+
+.notes-editor {
+    background: var(--light);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+.note-editor-area {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    min-height: 450px;
+}
+
+.note-editor-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: var(--primary-color);
+}
+
+.note-editor-date {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.note-editor-content {
+    width: 100%;
+    min-height: 350px;
+    border: none;
+    font-size: 1rem;
+    font-family: inherit;
+    resize: vertical;
+    padding: 10px;
+}
+
+.note-editor-content:focus {
+    outline: 2px solid var(--primary-color);
+    border-radius: 8px;
+}
+
+.note-actions {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+}
+
+.empty-state {
+    text-align: center;
+    color: #999;
+    font-size: 1.2rem;
+    padding: 100px 20px;
+}
+
+/* ==================== Insights & Events ==================== */
+.insights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 20px;
+}
+
+.insight-card {
+    background: var(--light);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+.insight-card h3 {
+    margin-bottom: 20px;
+    color: var(--primary-color);
+}
+
+.lessons-display,
+.events-display {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.lesson-entry,
+.event-entry {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    border-left: 4px solid var(--primary-color);
+}
+
+.lesson-date,
+.event-date {
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+}
+
+.lesson-content,
+.event-content {
+    color: var(--dark);
+    line-height: 1.6;
+}
+
+.events-filter {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 8px 16px;
+    border: 2px solid var(--border);
+    background: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.filter-btn:hover {
+    background: var(--light);
+}
+
+.filter-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+/* ==================== Scrollbar Styling ==================== */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--light);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #357abd;
+}
+
+/* ==================== Responsive Design ==================== */
+@media (max-width: 1200px) {
+    .daily-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .eisenhower-matrix {
+        grid-template-columns: 1fr;
+    }
+
+    .notes-container {
+        grid-template-columns: 1fr;
+    }
+
+    .insights-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    header {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    header h1 {
+        font-size: 1.8rem;
+    }
+
+    .tabs {
+        flex-wrap: nowrap;
+    }
+
+    .tab-btn {
+        font-size: 0.9rem;
+        padding: 12px 16px;
+    }
+
+    .planner-header {
+        flex-direction: column;
+    }
+
+    .weekly-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .calendar-grid {
+        gap: 5px;
+    }
+
+    .calendar-day {
+        font-size: 0.85rem;
+        padding: 5px;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 10px;
+    }
+
+    .container {
+        border-radius: 10px;
+    }
+
+    header {
+        padding: 20px;
+    }
+
+    .tab-content {
+        padding: 15px;
+    }
+
+    header h1 {
+        font-size: 1.5rem;
+    }
+
+    .calendar-day-name {
+        font-size: 0.8rem;
+        padding: 5px;
+    }
+}
+
+/* ==================== Print Styles ==================== */
+@media print {
+    body {
+        background: white;
+    }
+
+    .container {
+        box-shadow: none;
+    }
+
+    .btn,
+    .tabs,
+    .header-controls {
+        display: none;
+    }
+
+    .tab-content {
+        display: block !important;
+        page-break-after: always;
+    }
+}

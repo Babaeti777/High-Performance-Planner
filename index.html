@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High-Performance Planner</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📅 High-Performance Planner</h1>
+            <div class="header-controls">
+                <button id="exportData" class="btn btn-secondary">Export Data</button>
+                <button id="importData" class="btn btn-secondary">Import Data</button>
+                <input type="file" id="importFile" accept=".json" style="display: none;">
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="daily">Daily Planner</button>
+            <button class="tab-btn" data-tab="weekly">Weekly Planner</button>
+            <button class="tab-btn" data-tab="monthly">Monthly Planner</button>
+            <button class="tab-btn" data-tab="eisenhower">Eisenhower Matrix</button>
+            <button class="tab-btn" data-tab="notes">Notes</button>
+            <button class="tab-btn" data-tab="insights">Insights & Events</button>
+        </nav>
+
+        <!-- Daily Planner Tab -->
+        <div id="daily" class="tab-content active">
+            <div class="planner-header">
+                <button id="prevDay" class="btn btn-nav">← Previous</button>
+                <input type="date" id="dailyDate" class="date-picker">
+                <button id="nextDay" class="btn btn-nav">Next →</button>
+                <button id="todayBtn" class="btn btn-primary">Today</button>
+            </div>
+
+            <div class="holiday-display" id="dailyHoliday"></div>
+
+            <div class="daily-grid">
+                <div class="time-schedule">
+                    <h3>⏰ Schedule</h3>
+                    <div id="timeSlots" class="time-slots"></div>
+                </div>
+
+                <div class="daily-tasks">
+                    <h3>✓ Tasks</h3>
+                    <div class="task-input-group">
+                        <input type="text" id="dailyTaskInput" placeholder="Add a task..." class="task-input">
+                        <button id="addDailyTask" class="btn btn-add">+</button>
+                    </div>
+                    <ul id="dailyTaskList" class="task-list"></ul>
+                </div>
+
+                <div class="daily-events">
+                    <h3>🎯 Important Events</h3>
+                    <div class="event-input-group">
+                        <input type="text" id="dailyEventInput" placeholder="Add important event..." class="event-input">
+                        <button id="addDailyEvent" class="btn btn-add">+</button>
+                    </div>
+                    <ul id="dailyEventList" class="event-list"></ul>
+                </div>
+            </div>
+
+            <div class="lessons-section">
+                <h3>💡 Lessons Learned Today</h3>
+                <textarea id="dailyLessons" placeholder="What did you learn today?" class="lessons-textarea"></textarea>
+                <button id="saveDailyLessons" class="btn btn-primary">Save Lessons</button>
+            </div>
+        </div>
+
+        <!-- Weekly Planner Tab -->
+        <div id="weekly" class="tab-content">
+            <div class="planner-header">
+                <button id="prevWeek" class="btn btn-nav">← Previous Week</button>
+                <div class="week-display" id="weekDisplay"></div>
+                <button id="nextWeek" class="btn btn-nav">Next Week →</button>
+                <button id="thisWeekBtn" class="btn btn-primary">This Week</button>
+            </div>
+
+            <div class="holiday-display" id="weeklyHoliday"></div>
+
+            <div class="weekly-grid" id="weeklyGrid">
+                <!-- Days of the week will be generated here -->
+            </div>
+
+            <div class="weekly-events">
+                <h3>🎯 Important Events This Week</h3>
+                <div class="event-input-group">
+                    <input type="text" id="weeklyEventInput" placeholder="Add weekly event..." class="event-input">
+                    <button id="addWeeklyEvent" class="btn btn-add">+</button>
+                </div>
+                <ul id="weeklyEventList" class="event-list"></ul>
+            </div>
+
+            <div class="lessons-section">
+                <h3>💡 Lessons Learned This Week</h3>
+                <textarea id="weeklyLessons" placeholder="What did you learn this week?" class="lessons-textarea"></textarea>
+                <button id="saveWeeklyLessons" class="btn btn-primary">Save Lessons</button>
+            </div>
+        </div>
+
+        <!-- Monthly Planner Tab -->
+        <div id="monthly" class="tab-content">
+            <div class="planner-header">
+                <button id="prevMonth" class="btn btn-nav">← Previous Month</button>
+                <div class="month-display">
+                    <select id="monthSelect" class="month-select"></select>
+                    <select id="yearSelect" class="year-select"></select>
+                </div>
+                <button id="nextMonth" class="btn btn-nav">Next Month →</button>
+                <button id="thisMonthBtn" class="btn btn-primary">This Month</button>
+            </div>
+
+            <div class="holiday-display" id="monthlyHoliday"></div>
+
+            <div class="calendar" id="calendar"></div>
+
+            <div class="monthly-goals">
+                <h3>🎯 Monthly Goals</h3>
+                <div class="goal-input-group">
+                    <input type="text" id="monthlyGoalInput" placeholder="Add monthly goal..." class="goal-input">
+                    <button id="addMonthlyGoal" class="btn btn-add">+</button>
+                </div>
+                <ul id="monthlyGoalList" class="goal-list"></ul>
+            </div>
+
+            <div class="monthly-events">
+                <h3>🎯 Important Events This Month</h3>
+                <div class="event-input-group">
+                    <input type="text" id="monthlyEventInput" placeholder="Add monthly event..." class="event-input">
+                    <button id="addMonthlyEvent" class="btn btn-add">+</button>
+                </div>
+                <ul id="monthlyEventList" class="event-list"></ul>
+            </div>
+
+            <div class="lessons-section">
+                <h3>💡 Lessons Learned This Month</h3>
+                <textarea id="monthlyLessons" placeholder="What did you learn this month?" class="lessons-textarea"></textarea>
+                <button id="saveMonthlyLessons" class="btn btn-primary">Save Lessons</button>
+            </div>
+        </div>
+
+        <!-- Eisenhower Matrix Tab -->
+        <div id="eisenhower" class="tab-content">
+            <h2>📊 Eisenhower Matrix</h2>
+            <p class="matrix-description">Prioritize tasks by urgency and importance</p>
+
+            <div class="eisenhower-matrix">
+                <div class="matrix-quadrant urgent-important">
+                    <h3>🔥 Urgent & Important</h3>
+                    <p class="quadrant-desc">Do First</p>
+                    <div class="task-input-group">
+                        <input type="text" class="matrix-input" data-quadrant="urgent-important" placeholder="Add task...">
+                        <button class="btn btn-add add-matrix-task" data-quadrant="urgent-important">+</button>
+                    </div>
+                    <ul class="matrix-task-list" data-quadrant="urgent-important"></ul>
+                </div>
+
+                <div class="matrix-quadrant not-urgent-important">
+                    <h3>📅 Not Urgent & Important</h3>
+                    <p class="quadrant-desc">Schedule</p>
+                    <div class="task-input-group">
+                        <input type="text" class="matrix-input" data-quadrant="not-urgent-important" placeholder="Add task...">
+                        <button class="btn btn-add add-matrix-task" data-quadrant="not-urgent-important">+</button>
+                    </div>
+                    <ul class="matrix-task-list" data-quadrant="not-urgent-important"></ul>
+                </div>
+
+                <div class="matrix-quadrant urgent-not-important">
+                    <h3>⚡ Urgent & Not Important</h3>
+                    <p class="quadrant-desc">Delegate</p>
+                    <div class="task-input-group">
+                        <input type="text" class="matrix-input" data-quadrant="urgent-not-important" placeholder="Add task...">
+                        <button class="btn btn-add add-matrix-task" data-quadrant="urgent-not-important">+</button>
+                    </div>
+                    <ul class="matrix-task-list" data-quadrant="urgent-not-important"></ul>
+                </div>
+
+                <div class="matrix-quadrant not-urgent-not-important">
+                    <h3>🗑️ Not Urgent & Not Important</h3>
+                    <p class="quadrant-desc">Eliminate</p>
+                    <div class="task-input-group">
+                        <input type="text" class="matrix-input" data-quadrant="not-urgent-not-important" placeholder="Add task...">
+                        <button class="btn btn-add add-matrix-task" data-quadrant="not-urgent-not-important">+</button>
+                    </div>
+                    <ul class="matrix-task-list" data-quadrant="not-urgent-not-important"></ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notes Tab -->
+        <div id="notes" class="tab-content">
+            <h2>📝 Notes</h2>
+
+            <div class="notes-controls">
+                <input type="text" id="noteTitle" placeholder="Note title..." class="note-title-input">
+                <button id="addNote" class="btn btn-primary">+ New Note</button>
+            </div>
+
+            <div class="notes-container">
+                <div class="notes-sidebar" id="notesList"></div>
+                <div class="notes-editor">
+                    <div id="noteEditor" class="note-editor-area">
+                        <p class="empty-state">Select a note or create a new one</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Insights & Events Tab -->
+        <div id="insights" class="tab-content">
+            <h2>🌟 Insights & Important Events</h2>
+
+            <div class="insights-grid">
+                <div class="insight-card">
+                    <h3>📚 All Lessons Learned</h3>
+                    <div id="allLessons" class="lessons-display"></div>
+                </div>
+
+                <div class="insight-card">
+                    <h3>🎯 All Important Events</h3>
+                    <div class="events-filter">
+                        <button class="filter-btn active" data-filter="all">All</button>
+                        <button class="filter-btn" data-filter="daily">Daily</button>
+                        <button class="filter-btn" data-filter="weekly">Weekly</button>
+                        <button class="filter-btn" data-filter="monthly">Monthly</button>
+                    </div>
+                    <div id="allEvents" class="events-display"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
