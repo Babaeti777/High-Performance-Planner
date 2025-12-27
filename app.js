@@ -303,13 +303,60 @@ function renderDailyTasks(dateKey) {
         checkbox.checked = task.completed;
         checkbox.addEventListener('change', () => {
             task.completed = checkbox.checked;
+
+            // If task is from Eisenhower, update it there too
+            if (task.source === 'eisenhower' && task.quadrant) {
+                const eisenTask = AppState.data.eisenhower[task.quadrant]?.find(t => t.id === task.id);
+                if (eisenTask) {
+                    eisenTask.completed = task.completed;
+                }
+            }
+
             saveData();
             renderDailyTasks(dateKey);
         });
 
+        const textContainer = document.createElement('div');
+        textContainer.style.flex = '1';
+        textContainer.style.display = 'flex';
+        textContainer.style.flexDirection = 'column';
+        textContainer.style.gap = '5px';
+
         const text = document.createElement('span');
         text.className = 'task-text';
         text.textContent = task.text;
+
+        const metaInfo = document.createElement('div');
+        metaInfo.style.display = 'flex';
+        metaInfo.style.gap = '8px';
+        metaInfo.style.flexWrap = 'wrap';
+
+        // Show quadrant badge if from Eisenhower
+        if (task.source === 'eisenhower' && task.quadrant) {
+            const quadrantBadge = document.createElement('span');
+            quadrantBadge.className = `task-badge badge-${task.quadrant}`;
+            const quadrantLabels = {
+                'urgent-important': '🔥 U&I',
+                'not-urgent-important': '📅 I',
+                'urgent-not-important': '⚡ U',
+                'not-urgent-not-important': '🗑️ Low'
+            };
+            quadrantBadge.textContent = quadrantLabels[task.quadrant] || task.quadrant;
+            metaInfo.appendChild(quadrantBadge);
+        }
+
+        // Show duration if available
+        if (task.duration && task.duration > 0) {
+            const durationBadge = document.createElement('span');
+            durationBadge.className = 'task-duration';
+            durationBadge.textContent = `⏱️ ${task.duration}h`;
+            metaInfo.appendChild(durationBadge);
+        }
+
+        textContainer.appendChild(text);
+        if (metaInfo.children.length > 0) {
+            textContainer.appendChild(metaInfo);
+        }
 
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'delete-btn';
@@ -317,12 +364,21 @@ function renderDailyTasks(dateKey) {
         deleteBtn.addEventListener('click', () => {
             const index = tasks.indexOf(task);
             tasks.splice(index, 1);
+
+            // If task is from Eisenhower, remove scheduled date there
+            if (task.source === 'eisenhower' && task.quadrant) {
+                const eisenTask = AppState.data.eisenhower[task.quadrant]?.find(t => t.id === task.id);
+                if (eisenTask) {
+                    eisenTask.scheduledDate = null;
+                }
+            }
+
             saveData();
             renderDailyTasks(dateKey);
         });
 
         li.appendChild(checkbox);
-        li.appendChild(text);
+        li.appendChild(textContainer);
         li.appendChild(deleteBtn);
         taskList.appendChild(li);
     });
@@ -448,9 +504,49 @@ function renderWeeklyPlanner() {
     // Render weekly events
     renderWeeklyEvents(weekKey);
 
+    // Render scheduled Eisenhower tasks for this week
+    renderWeeklyEisenhowerTasks();
+
     // Load lessons
     const lessonsTextarea = document.getElementById('weeklyLessons');
     lessonsTextarea.value = AppState.data.lessons.weekly[weekKey] || '';
+}
+
+function renderWeeklyEisenhowerTasks() {
+    const container = document.getElementById('weeklyEisenhowerTasks');
+    container.innerHTML = '';
+
+    const weekEnd = new Date(AppState.currentWeekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+
+    const scheduledTasks = [];
+
+    // Collect all scheduled Eisenhower tasks for this week
+    const quadrants = ['urgent-important', 'not-urgent-important', 'urgent-not-important', 'not-urgent-not-important'];
+    quadrants.forEach(quadrant => {
+        const tasks = AppState.data.eisenhower[quadrant] || [];
+        tasks.forEach(task => {
+            if (task.scheduledDate) {
+                const taskDate = new Date(task.scheduledDate + 'T00:00:00');
+                if (taskDate >= AppState.currentWeekStart && taskDate <= weekEnd) {
+                    scheduledTasks.push({ ...task, quadrant });
+                }
+            }
+        });
+    });
+
+    if (scheduledTasks.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">No scheduled tasks from Eisenhower Matrix for this week.</p>';
+        return;
+    }
+
+    // Sort by date
+    scheduledTasks.sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
+
+    scheduledTasks.forEach(task => {
+        const card = createScheduledTaskCard(task);
+        container.appendChild(card);
+    });
 }
 
 function renderWeekGrid() {
@@ -531,9 +627,47 @@ function renderWeekGrid() {
         tasks.slice(0, 5).forEach(task => {
             const li = document.createElement('li');
             li.className = `task-item ${task.completed ? 'completed' : ''}`;
-            li.textContent = task.text;
             li.style.fontSize = '0.85rem';
             li.style.padding = '8px';
+            li.style.display = 'flex';
+            li.style.flexDirection = 'column';
+            li.style.gap = '3px';
+
+            const taskText = document.createElement('span');
+            taskText.textContent = task.text;
+            li.appendChild(taskText);
+
+            // Show badges if from Eisenhower
+            if (task.source === 'eisenhower' && task.quadrant) {
+                const badgeContainer = document.createElement('div');
+                badgeContainer.style.display = 'flex';
+                badgeContainer.style.gap = '5px';
+
+                const quadrantBadge = document.createElement('span');
+                quadrantBadge.className = `task-badge badge-${task.quadrant}`;
+                quadrantBadge.style.fontSize = '0.7rem';
+                quadrantBadge.style.padding = '2px 6px';
+                const quadrantLabels = {
+                    'urgent-important': '🔥',
+                    'not-urgent-important': '📅',
+                    'urgent-not-important': '⚡',
+                    'not-urgent-not-important': '🗑️'
+                };
+                quadrantBadge.textContent = quadrantLabels[task.quadrant];
+                badgeContainer.appendChild(quadrantBadge);
+
+                if (task.duration && task.duration > 0) {
+                    const durationBadge = document.createElement('span');
+                    durationBadge.className = 'task-duration';
+                    durationBadge.style.fontSize = '0.7rem';
+                    durationBadge.style.padding = '2px 6px';
+                    durationBadge.textContent = `${task.duration}h`;
+                    badgeContainer.appendChild(durationBadge);
+                }
+
+                li.appendChild(badgeContainer);
+            }
+
             taskList.appendChild(li);
         });
 
@@ -710,6 +844,9 @@ function renderMonthlyPlanner() {
     // Render calendar
     renderCalendar();
 
+    // Render scheduled Eisenhower tasks for this month
+    renderMonthlyEisenhowerTasks();
+
     // Render monthly goals
     renderMonthlyGoals(monthKey);
 
@@ -719,6 +856,101 @@ function renderMonthlyPlanner() {
     // Load lessons
     const lessonsTextarea = document.getElementById('monthlyLessons');
     lessonsTextarea.value = AppState.data.lessons.monthly[monthKey] || '';
+}
+
+function renderMonthlyEisenhowerTasks() {
+    const container = document.getElementById('monthlyEisenhowerTasks');
+    container.innerHTML = '';
+
+    const firstDay = new Date(AppState.currentYear, AppState.currentMonth, 1);
+    const lastDay = new Date(AppState.currentYear, AppState.currentMonth + 1, 0);
+
+    const scheduledTasks = [];
+
+    // Collect all scheduled Eisenhower tasks for this month
+    const quadrants = ['urgent-important', 'not-urgent-important', 'urgent-not-important', 'not-urgent-not-important'];
+    quadrants.forEach(quadrant => {
+        const tasks = AppState.data.eisenhower[quadrant] || [];
+        tasks.forEach(task => {
+            if (task.scheduledDate) {
+                const taskDate = new Date(task.scheduledDate + 'T00:00:00');
+                if (taskDate >= firstDay && taskDate <= lastDay) {
+                    scheduledTasks.push({ ...task, quadrant });
+                }
+            }
+        });
+    });
+
+    if (scheduledTasks.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">No scheduled tasks from Eisenhower Matrix for this month.</p>';
+        return;
+    }
+
+    // Sort by date
+    scheduledTasks.sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
+
+    scheduledTasks.forEach(task => {
+        const card = createScheduledTaskCard(task);
+        container.appendChild(card);
+    });
+}
+
+function createScheduledTaskCard(task) {
+    const card = document.createElement('div');
+    card.className = 'scheduled-task-card';
+
+    const colors = {
+        'urgent-important': '#ff6b6b',
+        'not-urgent-important': '#4ecdc4',
+        'urgent-not-important': '#ffe66d',
+        'not-urgent-not-important': '#95e1d3'
+    };
+    card.style.borderLeftColor = colors[task.quadrant];
+
+    const header = document.createElement('div');
+    header.className = 'scheduled-task-header';
+
+    const title = document.createElement('div');
+    title.className = 'scheduled-task-title';
+    title.textContent = task.text;
+    if (task.completed) {
+        title.style.textDecoration = 'line-through';
+        title.style.opacity = '0.6';
+    }
+
+    const quadrantBadge = document.createElement('span');
+    quadrantBadge.className = `task-badge badge-${task.quadrant}`;
+    const quadrantLabels = {
+        'urgent-important': '🔥 U&I',
+        'not-urgent-important': '📅 Important',
+        'urgent-not-important': '⚡ Urgent',
+        'not-urgent-not-important': '🗑️ Low Priority'
+    };
+    quadrantBadge.textContent = quadrantLabels[task.quadrant];
+
+    header.appendChild(title);
+    header.appendChild(quadrantBadge);
+
+    const meta = document.createElement('div');
+    meta.className = 'scheduled-task-meta';
+
+    const dateBadge = document.createElement('span');
+    dateBadge.className = 'task-scheduled';
+    const taskDate = new Date(task.scheduledDate + 'T00:00:00');
+    dateBadge.textContent = `📅 ${taskDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+    meta.appendChild(dateBadge);
+
+    if (task.duration && task.duration > 0) {
+        const durationBadge = document.createElement('span');
+        durationBadge.className = 'task-duration';
+        durationBadge.textContent = `⏱️ ${task.duration}h`;
+        meta.appendChild(durationBadge);
+    }
+
+    card.appendChild(header);
+    card.appendChild(meta);
+
+    return card;
 }
 
 function renderCalendar() {
@@ -927,17 +1159,46 @@ function initEisenhowerMatrix() {
         button.addEventListener('click', () => {
             const quadrant = button.dataset.quadrant;
             const input = document.querySelector(`.matrix-input[data-quadrant="${quadrant}"]`);
-            const taskText = input.value.trim();
+            const durationInput = document.querySelector(`.matrix-duration[data-quadrant="${quadrant}"]`);
+            const scheduleInput = document.querySelector(`.matrix-schedule[data-quadrant="${quadrant}"]`);
 
+            const taskText = input.value.trim();
             if (!taskText) return;
 
-            AppState.data.eisenhower[quadrant].push({
+            const duration = parseFloat(durationInput.value) || 0;
+            const scheduledDate = scheduleInput.value || null;
+
+            const newTask = {
                 id: Date.now(),
                 text: taskText,
-                completed: false
-            });
+                completed: false,
+                quadrant: quadrant,
+                duration: duration,
+                scheduledDate: scheduledDate,
+                createdAt: new Date().toISOString()
+            };
+
+            AppState.data.eisenhower[quadrant].push(newTask);
+
+            // If scheduled, add to daily tasks for that date
+            if (scheduledDate) {
+                if (!AppState.data.daily[scheduledDate]) {
+                    AppState.data.daily[scheduledDate] = { timeSlots: {}, tasks: [] };
+                }
+
+                AppState.data.daily[scheduledDate].tasks.push({
+                    id: newTask.id,
+                    text: taskText,
+                    completed: false,
+                    source: 'eisenhower',
+                    quadrant: quadrant,
+                    duration: duration
+                });
+            }
 
             input.value = '';
+            durationInput.value = '';
+            scheduleInput.value = '';
             saveData();
             renderEisenhowerMatrix();
         });
@@ -974,20 +1235,77 @@ function renderEisenhowerMatrix() {
                 task.completed = checkbox.checked;
                 li.style.opacity = task.completed ? '0.6' : '1';
                 li.style.textDecoration = task.completed ? 'line-through' : 'none';
+
+                // Update in daily tasks if scheduled
+                if (task.scheduledDate && AppState.data.daily[task.scheduledDate]) {
+                    const dailyTask = AppState.data.daily[task.scheduledDate].tasks.find(t => t.id === task.id);
+                    if (dailyTask) {
+                        dailyTask.completed = task.completed;
+                    }
+                }
+
                 saveData();
             });
+
+            const textContainer = document.createElement('div');
+            textContainer.style.flex = '1';
+            textContainer.style.display = 'flex';
+            textContainer.style.flexDirection = 'column';
+            textContainer.style.gap = '5px';
 
             const text = document.createElement('span');
             text.className = 'task-text';
             text.textContent = task.text;
-            text.style.flex = '1';
+
+            const metaInfo = document.createElement('div');
+            metaInfo.style.display = 'flex';
+            metaInfo.style.gap = '8px';
+            metaInfo.style.flexWrap = 'wrap';
+
+            if (task.duration && task.duration > 0) {
+                const durationBadge = document.createElement('span');
+                durationBadge.className = 'task-duration';
+                durationBadge.textContent = `⏱️ ${task.duration}h`;
+                metaInfo.appendChild(durationBadge);
+            }
+
+            if (task.scheduledDate) {
+                const scheduleBadge = document.createElement('span');
+                scheduleBadge.className = 'task-scheduled';
+                const schedDate = new Date(task.scheduledDate + 'T00:00:00');
+                scheduleBadge.textContent = `📅 ${schedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+                metaInfo.appendChild(scheduleBadge);
+            }
+
+            textContainer.appendChild(text);
+            if (metaInfo.children.length > 0) {
+                textContainer.appendChild(metaInfo);
+            }
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'edit-task-btn';
+            editBtn.textContent = 'Edit';
+            editBtn.addEventListener('click', () => {
+                editEisenhowerTask(task, quadrant);
+            });
 
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'delete-btn';
             deleteBtn.textContent = 'Delete';
             deleteBtn.addEventListener('click', () => {
+                // Remove from eisenhower
                 const index = tasks.indexOf(task);
                 tasks.splice(index, 1);
+
+                // Remove from daily tasks if scheduled
+                if (task.scheduledDate && AppState.data.daily[task.scheduledDate]) {
+                    const dailyTasks = AppState.data.daily[task.scheduledDate].tasks;
+                    const dailyIndex = dailyTasks.findIndex(t => t.id === task.id);
+                    if (dailyIndex !== -1) {
+                        dailyTasks.splice(dailyIndex, 1);
+                    }
+                }
+
                 saveData();
                 renderEisenhowerMatrix();
             });
@@ -998,10 +1316,128 @@ function renderEisenhowerMatrix() {
             }
 
             li.appendChild(checkbox);
-            li.appendChild(text);
+            li.appendChild(textContainer);
+            li.appendChild(editBtn);
             li.appendChild(deleteBtn);
             taskList.appendChild(li);
         });
+    });
+
+    renderMatrixStats();
+}
+
+function editEisenhowerTask(task, quadrant) {
+    const newText = prompt('Edit task name:', task.text);
+    if (newText && newText.trim()) {
+        task.text = newText.trim();
+    }
+
+    const newDuration = prompt('Edit duration (hours):', task.duration || 0);
+    if (newDuration !== null) {
+        const duration = parseFloat(newDuration) || 0;
+        task.duration = duration;
+
+        // Update in daily tasks
+        if (task.scheduledDate && AppState.data.daily[task.scheduledDate]) {
+            const dailyTask = AppState.data.daily[task.scheduledDate].tasks.find(t => t.id === task.id);
+            if (dailyTask) {
+                dailyTask.text = task.text;
+                dailyTask.duration = duration;
+            }
+        }
+    }
+
+    const newDate = prompt('Edit scheduled date (YYYY-MM-DD):', task.scheduledDate || '');
+    if (newDate !== null) {
+        // Remove from old date
+        if (task.scheduledDate && AppState.data.daily[task.scheduledDate]) {
+            const dailyTasks = AppState.data.daily[task.scheduledDate].tasks;
+            const index = dailyTasks.findIndex(t => t.id === task.id);
+            if (index !== -1) {
+                dailyTasks.splice(index, 1);
+            }
+        }
+
+        // Add to new date
+        if (newDate.trim()) {
+            task.scheduledDate = newDate.trim();
+            if (!AppState.data.daily[task.scheduledDate]) {
+                AppState.data.daily[task.scheduledDate] = { timeSlots: {}, tasks: [] };
+            }
+
+            AppState.data.daily[task.scheduledDate].tasks.push({
+                id: task.id,
+                text: task.text,
+                completed: task.completed,
+                source: 'eisenhower',
+                quadrant: quadrant,
+                duration: task.duration
+            });
+        } else {
+            task.scheduledDate = null;
+        }
+    }
+
+    saveData();
+    renderEisenhowerMatrix();
+}
+
+function renderMatrixStats() {
+    const statsContainer = document.getElementById('matrixStats');
+    statsContainer.innerHTML = '';
+
+    const quadrants = ['urgent-important', 'not-urgent-important', 'urgent-not-important', 'not-urgent-not-important'];
+    const quadrantNames = {
+        'urgent-important': 'Urgent & Important',
+        'not-urgent-important': 'Not Urgent & Important',
+        'urgent-not-important': 'Urgent & Not Important',
+        'not-urgent-not-important': 'Not Urgent & Not Important'
+    };
+
+    let totalHours = 0;
+    const stats = {};
+
+    quadrants.forEach(quadrant => {
+        const tasks = AppState.data.eisenhower[quadrant] || [];
+        const hours = tasks.reduce((sum, task) => sum + (task.duration || 0), 0);
+        const count = tasks.length;
+        const completed = tasks.filter(t => t.completed).length;
+
+        stats[quadrant] = { hours, count, completed };
+        totalHours += hours;
+    });
+
+    // Total hours card
+    const totalCard = document.createElement('div');
+    totalCard.className = 'stat-card';
+    totalCard.innerHTML = `
+        <div class="stat-label">Total Hours Planned</div>
+        <div class="stat-value">${totalHours.toFixed(1)}h</div>
+    `;
+    statsContainer.appendChild(totalCard);
+
+    // Quadrant cards
+    quadrants.forEach(quadrant => {
+        const card = document.createElement('div');
+        card.className = 'stat-card';
+        const { hours, count, completed } = stats[quadrant];
+
+        card.innerHTML = `
+            <div class="stat-label">${quadrantNames[quadrant]}</div>
+            <div class="stat-value">${hours.toFixed(1)}h</div>
+            <div class="stat-label" style="margin-top: 10px;">${completed}/${count} tasks completed</div>
+        `;
+
+        // Set border color based on quadrant
+        const colors = {
+            'urgent-important': '#ff6b6b',
+            'not-urgent-important': '#4ecdc4',
+            'urgent-not-important': '#ffe66d',
+            'not-urgent-not-important': '#95e1d3'
+        };
+        card.style.borderLeftColor = colors[quadrant];
+
+        statsContainer.appendChild(card);
     });
 }
 

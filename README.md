@@ -29,13 +29,20 @@ A comprehensive, feature-rich daily, weekly, and monthly planner application wit
 - **Monthly Lessons**: Capture key learnings from the month
 
 ### 4. Eisenhower Matrix
-Prioritize tasks using the proven Eisenhower Decision Matrix:
+Prioritize tasks using the proven Eisenhower Decision Matrix with enhanced scheduling:
 - **Urgent & Important** (Do First): Critical tasks requiring immediate attention
 - **Not Urgent & Important** (Schedule): Important tasks to schedule for later
 - **Urgent & Not Important** (Delegate): Tasks that can be delegated
 - **Not Urgent & Not Important** (Eliminate): Tasks to minimize or eliminate
 
-Each quadrant has its own task list with add, complete, and delete functionality.
+**Enhanced Features:**
+- **Duration Tracking**: Assign estimated hours to each task
+- **Date Scheduling**: Schedule tasks to specific dates
+- **Automatic Linking**: Scheduled tasks automatically appear in daily, weekly, and monthly views
+- **Visual Indicators**: Color-coded badges show task priority across all views
+- **Time Allocation Summary**: See total hours planned by quadrant
+- **Edit Functionality**: Update task details, duration, and scheduled dates
+- **Cross-Tab Synchronization**: Completion status syncs across all tabs
 
 ### 5. Notes Section
 - **Rich Note Taking**: Create and manage unlimited notes
@@ -49,7 +56,16 @@ Each quadrant has its own task list with add, complete, and delete functionality
 - **Event Filtering**: Filter events by Daily, Weekly, Monthly, or view All
 - **Chronological Sorting**: Everything sorted by date (newest first)
 
-### 7. Additional Features
+### 7. Cross-Tab Task Linking
+Tasks are intelligently linked across all planner views:
+- **Eisenhower to Daily**: Scheduled tasks from Eisenhower Matrix automatically appear in daily planner
+- **Eisenhower to Weekly**: See all scheduled tasks for the week with quadrant badges
+- **Eisenhower to Monthly**: View monthly task distribution with time estimates
+- **Bi-directional Sync**: Checking off a task in daily view updates Eisenhower Matrix
+- **Visual Badges**: Color-coded priority indicators (🔥 Urgent&Important, 📅 Important, ⚡ Urgent, 🗑️ Low)
+- **Duration Display**: See estimated hours for each task across all views
+
+### 8. Additional Features
 - **Holiday Integration**: Major holidays automatically displayed
 - **Data Persistence**: All data saved to browser's local storage
 - **Import/Export**: Backup and restore your data with JSON export/import
@@ -95,10 +111,21 @@ No installation, no build process, no dependencies - just open and use!
 
 #### Using the Eisenhower Matrix
 1. Click on the **Eisenhower Matrix** tab
-2. Add tasks to the appropriate quadrant based on urgency and importance
-3. Use this to prioritize your work effectively
-4. Check off tasks as you complete them
-5. Delete tasks that are no longer relevant
+2. For each task, enter:
+   - **Task name**: What needs to be done
+   - **Duration** (optional): Estimated hours (e.g., 2.5)
+   - **Schedule date** (optional): When you'll work on it
+3. Click + to add the task to the appropriate quadrant
+4. **Scheduled tasks automatically appear** in your daily/weekly/monthly planners
+5. **Edit tasks** by clicking the Edit button to update details or reschedule
+6. **View time allocation** in the summary at the bottom
+7. Check off tasks as you complete them (syncs across all views)
+8. Delete tasks that are no longer relevant
+
+**Pro Tips:**
+- Schedule "Not Urgent & Important" tasks early to prevent them from becoming urgent
+- Use duration estimates to ensure you don't over-commit your time
+- Review the weekly/monthly scheduled tasks summary to balance your workload
 
 #### Taking Notes
 1. Open the **Notes** tab
@@ -197,12 +224,16 @@ High-Performance-Planner/
 - Hourly scheduling (6 AM - 11 PM)
 - Daily, weekly, and monthly views
 - Easy navigation between time periods
+- Duration-based time allocation planning
 
 ### Task Management
 - Create, complete, and delete tasks
 - Task indicators on calendar
 - Checkbox completion tracking
-- Eisenhower Matrix prioritization
+- Eisenhower Matrix prioritization with duration tracking
+- Cross-tab task synchronization
+- Visual priority badges and indicators
+- Automatic scheduling from Eisenhower to daily/weekly/monthly views
 
 ### Event Tracking
 - Daily, weekly, and monthly events

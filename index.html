@@ -85,6 +85,11 @@
                 <!-- Days of the week will be generated here -->
             </div>
 
+            <div class="eisenhower-scheduled">
+                <h3>📊 Scheduled Tasks from Eisenhower Matrix</h3>
+                <div id="weeklyEisenhowerTasks" class="scheduled-tasks-container"></div>
+            </div>
+
             <div class="weekly-events">
                 <h3>🎯 Important Events This Week</h3>
                 <div class="event-input-group">
@@ -117,6 +122,11 @@
 
             <div class="calendar" id="calendar"></div>
 
+            <div class="eisenhower-scheduled">
+                <h3>📊 Scheduled Tasks from Eisenhower Matrix</h3>
+                <div id="monthlyEisenhowerTasks" class="scheduled-tasks-container"></div>
+            </div>
+
             <div class="monthly-goals">
                 <h3>🎯 Monthly Goals</h3>
                 <div class="goal-input-group">
@@ -145,14 +155,16 @@
         <!-- Eisenhower Matrix Tab -->
         <div id="eisenhower" class="tab-content">
             <h2>📊 Eisenhower Matrix</h2>
-            <p class="matrix-description">Prioritize tasks by urgency and importance</p>
+            <p class="matrix-description">Prioritize tasks by urgency and importance, add duration, and schedule them</p>
 
             <div class="eisenhower-matrix">
                 <div class="matrix-quadrant urgent-important">
                     <h3>🔥 Urgent & Important</h3>
                     <p class="quadrant-desc">Do First</p>
-                    <div class="task-input-group">
-                        <input type="text" class="matrix-input" data-quadrant="urgent-important" placeholder="Add task...">
+                    <div class="matrix-task-input-group">
+                        <input type="text" class="matrix-input" data-quadrant="urgent-important" placeholder="Task name...">
+                        <input type="number" class="matrix-duration" data-quadrant="urgent-important" placeholder="Hours" min="0.5" step="0.5">
+                        <input type="date" class="matrix-schedule" data-quadrant="urgent-important">
                         <button class="btn btn-add add-matrix-task" data-quadrant="urgent-important">+</button>
                     </div>
                     <ul class="matrix-task-list" data-quadrant="urgent-important"></ul>
@@ -161,8 +173,10 @@
                 <div class="matrix-quadrant not-urgent-important">
                     <h3>📅 Not Urgent & Important</h3>
                     <p class="quadrant-desc">Schedule</p>
-                    <div class="task-input-group">
-                        <input type="text" class="matrix-input" data-quadrant="not-urgent-important" placeholder="Add task...">
+                    <div class="matrix-task-input-group">
+                        <input type="text" class="matrix-input" data-quadrant="not-urgent-important" placeholder="Task name...">
+                        <input type="number" class="matrix-duration" data-quadrant="not-urgent-important" placeholder="Hours" min="0.5" step="0.5">
+                        <input type="date" class="matrix-schedule" data-quadrant="not-urgent-important">
                         <button class="btn btn-add add-matrix-task" data-quadrant="not-urgent-important">+</button>
                     </div>
                     <ul class="matrix-task-list" data-quadrant="not-urgent-important"></ul>
@@ -171,8 +185,10 @@
                 <div class="matrix-quadrant urgent-not-important">
                     <h3>⚡ Urgent & Not Important</h3>
                     <p class="quadrant-desc">Delegate</p>
-                    <div class="task-input-group">
-                        <input type="text" class="matrix-input" data-quadrant="urgent-not-important" placeholder="Add task...">
+                    <div class="matrix-task-input-group">
+                        <input type="text" class="matrix-input" data-quadrant="urgent-not-important" placeholder="Task name...">
+                        <input type="number" class="matrix-duration" data-quadrant="urgent-not-important" placeholder="Hours" min="0.5" step="0.5">
+                        <input type="date" class="matrix-schedule" data-quadrant="urgent-not-important">
                         <button class="btn btn-add add-matrix-task" data-quadrant="urgent-not-important">+</button>
                     </div>
                     <ul class="matrix-task-list" data-quadrant="urgent-not-important"></ul>
@@ -181,12 +197,19 @@
                 <div class="matrix-quadrant not-urgent-not-important">
                     <h3>🗑️ Not Urgent & Not Important</h3>
                     <p class="quadrant-desc">Eliminate</p>
-                    <div class="task-input-group">
-                        <input type="text" class="matrix-input" data-quadrant="not-urgent-not-important" placeholder="Add task...">
+                    <div class="matrix-task-input-group">
+                        <input type="text" class="matrix-input" data-quadrant="not-urgent-not-important" placeholder="Task name...">
+                        <input type="number" class="matrix-duration" data-quadrant="not-urgent-not-important" placeholder="Hours" min="0.5" step="0.5">
+                        <input type="date" class="matrix-schedule" data-quadrant="not-urgent-not-important">
                         <button class="btn btn-add add-matrix-task" data-quadrant="not-urgent-not-important">+</button>
                     </div>
                     <ul class="matrix-task-list" data-quadrant="not-urgent-not-important"></ul>
                 </div>
+            </div>
+
+            <div class="matrix-stats">
+                <h3>📊 Time Allocation Summary</h3>
+                <div class="stats-grid" id="matrixStats"></div>
             </div>
         </div>
 
