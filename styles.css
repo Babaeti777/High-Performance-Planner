@@ -219,6 +219,13 @@ body {
     margin-left: 70px;
 }
 
+/* ==================== Section Divider ==================== */
+.section-divider {
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+    margin: 60px 0 20px 0;
+}
+
 /* ==================== Tab Content ==================== */
 .tab-content {
     display: none;

@@ -126,8 +126,6 @@ function initTabs() {
             switch(targetTab) {
                 case 'daily':
                     renderDailyPlanner();
-                    break;
-                case 'weekly':
                     renderWeeklyPlanner();
                     break;
                 case 'monthly':
