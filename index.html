@@ -7,25 +7,56 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>📅 High-Performance Planner</h1>
-            <div class="header-controls">
-                <button id="exportData" class="btn btn-secondary">Export Data</button>
-                <button id="importData" class="btn btn-secondary">Import Data</button>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-icon">📅</span>
+                    <span class="logo-text">Planner</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-tab="daily">
+                    <span class="nav-icon">📆</span>
+                    <span class="nav-text">Daily</span>
+                </button>
+                <button class="nav-item" data-tab="weekly">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-text">Weekly</span>
+                </button>
+                <button class="nav-item" data-tab="monthly">
+                    <span class="nav-icon">📅</span>
+                    <span class="nav-text">Monthly</span>
+                </button>
+                <button class="nav-item" data-tab="eisenhower">
+                    <span class="nav-icon">🎯</span>
+                    <span class="nav-text">Matrix</span>
+                </button>
+                <button class="nav-item" data-tab="notes">
+                    <span class="nav-icon">📝</span>
+                    <span class="nav-text">Notes</span>
+                </button>
+                <button class="nav-item" data-tab="insights">
+                    <span class="nav-icon">💡</span>
+                    <span class="nav-text">Insights</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button id="exportData" class="sidebar-btn">
+                    <span>💾</span> Export
+                </button>
+                <button id="importData" class="sidebar-btn">
+                    <span>📥</span> Import
+                </button>
                 <input type="file" id="importFile" accept=".json" style="display: none;">
             </div>
-        </header>
+        </aside>
 
-        <!-- Navigation Tabs -->
-        <nav class="tabs">
-            <button class="tab-btn active" data-tab="daily">Daily Planner</button>
-            <button class="tab-btn" data-tab="weekly">Weekly Planner</button>
-            <button class="tab-btn" data-tab="monthly">Monthly Planner</button>
-            <button class="tab-btn" data-tab="eisenhower">Eisenhower Matrix</button>
-            <button class="tab-btn" data-tab="notes">Notes</button>
-            <button class="tab-btn" data-tab="insights">Insights & Events</button>
-        </nav>
+        <!-- Main Content Area -->
+        <main class="main-content">
 
         <!-- Daily Planner Tab -->
         <div id="daily" class="tab-content active">
@@ -254,6 +285,7 @@
                 </div>
             </div>
         </div>
+        </main>
     </div>
 
     <script src="app.js"></script>

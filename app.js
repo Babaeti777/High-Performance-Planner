@@ -107,18 +107,18 @@ function getHolidaysInRange(startDate, endDate) {
 
 // ==================== Tab Navigation ====================
 function initTabs() {
-    const tabButtons = document.querySelectorAll('.tab-btn');
+    const navItems = document.querySelectorAll('.nav-item');
     const tabContents = document.querySelectorAll('.tab-content');
 
-    tabButtons.forEach(button => {
+    navItems.forEach(button => {
         button.addEventListener('click', () => {
             const targetTab = button.dataset.tab;
 
-            // Remove active class from all tabs and contents
-            tabButtons.forEach(btn => btn.classList.remove('active'));
+            // Remove active class from all nav items and contents
+            navItems.forEach(btn => btn.classList.remove('active'));
             tabContents.forEach(content => content.classList.remove('active'));
 
-            // Add active class to clicked tab and corresponding content
+            // Add active class to clicked nav item and corresponding content
             button.classList.add('active');
             document.getElementById(targetTab).classList.add('active');
 
