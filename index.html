@@ -23,34 +23,30 @@
             </div>
 
             <nav class="sidebar-nav">
-                <button class="nav-item" data-tab="daily">
+                <button class="nav-item active" data-tab="eisenhower">
+                    <span class="nav-icon">🎯</span>
+                    <span class="nav-text">Prioritize</span>
+                </button>
+                <button class="nav-item" data-tab="schedule">
                     <span class="nav-icon">📆</span>
-                    <span class="nav-text">Daily & Weekly</span>
+                    <span class="nav-text">Schedule</span>
                 </button>
                 <button class="nav-item" data-tab="monthly">
                     <span class="nav-icon">📅</span>
                     <span class="nav-text">Monthly</span>
                 </button>
-                <button class="nav-item active" data-tab="eisenhower">
-                    <span class="nav-icon">🎯</span>
-                    <span class="nav-text">Matrix</span>
-                </button>
                 <button class="nav-item" data-tab="notes">
                     <span class="nav-icon">📝</span>
                     <span class="nav-text">Notes</span>
-                </button>
-                <button class="nav-item" data-tab="insights">
-                    <span class="nav-icon">💡</span>
-                    <span class="nav-text">Insights</span>
                 </button>
             </nav>
 
             <div class="sidebar-footer">
                 <button id="exportData" class="sidebar-btn">
-                    <span>💾</span> Export
+                    <span>💾</span> <span>Export</span>
                 </button>
                 <button id="importData" class="sidebar-btn">
-                    <span>📥</span> Import
+                    <span>📥</span> <span>Import</span>
                 </button>
                 <input type="file" id="importFile" accept=".json" style="display: none;">
             </div>
@@ -59,238 +55,224 @@
         <!-- Main Content Area -->
         <main class="main-content">
 
-        <!-- Daily & Weekly Planner Tab -->
-        <div id="daily" class="tab-content">
-            <!-- Week Navigation Header -->
-            <div class="week-header">
-                <button id="prevWeek" class="btn btn-nav">← Previous Week</button>
-                <div class="week-info">
-                    <h2 id="weekTitle">This Week</h2>
-                    <p id="weekDateRange" class="week-range"></p>
-                </div>
-                <button id="nextWeek" class="btn btn-nav">Next Week →</button>
-                <button id="thisWeekBtn" class="btn btn-primary">Today</button>
-            </div>
-
-            <!-- Stopwatch Timer Component -->
-            <div id="timerWidget" class="timer-widget hidden">
-                <div class="timer-close" id="closeTimer">✕</div>
-                <div class="timer-task-name" id="timerTaskName">Task Name</div>
-                <div class="stopwatch-container">
-                    <svg class="stopwatch-svg" viewBox="0 0 200 200">
-                        <circle class="stopwatch-bg" cx="100" cy="100" r="90"/>
-                        <circle class="stopwatch-progress" cx="100" cy="100" r="90" id="progressCircle"/>
-                    </svg>
-                    <div class="timer-display" id="timerDisplay">00:00</div>
-                </div>
-                <div class="timer-controls">
-                    <button id="pauseTimer" class="btn btn-secondary">⏸ Pause</button>
-                    <button id="stopTimer" class="btn btn-danger">⏹ Stop</button>
-                </div>
-            </div>
-
-            <!-- Vertical Week Days List -->
-            <div class="week-days-container" id="weekDaysContainer">
-                <!-- Week days will be dynamically generated here -->
-            </div>
-
-            <!-- Floating Add Task Button -->
-            <button class="floating-add-btn" id="floatingAddBtn">
-                <span class="plus-icon">+</span>
-                <span class="btn-text">Add Task</span>
-            </button>
-        </div>
-
-        <!-- Task Modal Popup -->
-        <div id="taskModal" class="modal hidden">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Add New Task</h3>
-                    <button class="modal-close" id="closeModal">✕</button>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label>Task Name</label>
-                        <input type="text" id="modalTaskName" class="form-input" placeholder="Enter task name..." autofocus>
+            <!-- Eisenhower Matrix Tab (Default - Start Here) -->
+            <div id="eisenhower" class="tab-content active">
+                <div class="page-header">
+                    <div class="page-title">
+                        <h2>🎯 Prioritize Your Tasks</h2>
+                        <p class="page-description">Start here! Add tasks and categorize them by urgency and importance. Schedule them to see them in your weekly view.</p>
                     </div>
-                    <div class="form-group">
-                        <label>Select Day</label>
-                        <select id="modalTaskDay" class="form-select">
-                            <!-- Days will be populated dynamically -->
-                        </select>
+                </div>
+
+                <div class="workflow-hint">
+                    <span class="hint-step">1</span>
+                    <span>Add tasks below</span>
+                    <span class="hint-arrow">→</span>
+                    <span class="hint-step">2</span>
+                    <span>Set duration & schedule date</span>
+                    <span class="hint-arrow">→</span>
+                    <span class="hint-step">3</span>
+                    <span>View in Schedule tab</span>
+                </div>
+
+                <div class="eisenhower-matrix">
+                    <div class="matrix-quadrant urgent-important">
+                        <div class="quadrant-header">
+                            <h3>🔥 Urgent & Important</h3>
+                            <span class="quadrant-action">Do First</span>
+                        </div>
+                        <div class="matrix-task-input-group">
+                            <input type="text" class="matrix-input" data-quadrant="urgent-important" placeholder="Add task...">
+                            <input type="number" class="matrix-duration" data-quadrant="urgent-important" placeholder="Hrs" min="0.5" step="0.5">
+                            <input type="date" class="matrix-schedule" data-quadrant="urgent-important" title="Schedule date">
+                            <button class="btn btn-add add-matrix-task" data-quadrant="urgent-important">+</button>
+                        </div>
+                        <ul class="matrix-task-list" data-quadrant="urgent-important"></ul>
                     </div>
-                    <div class="form-row">
+
+                    <div class="matrix-quadrant not-urgent-important">
+                        <div class="quadrant-header">
+                            <h3>📅 Important, Not Urgent</h3>
+                            <span class="quadrant-action">Schedule</span>
+                        </div>
+                        <div class="matrix-task-input-group">
+                            <input type="text" class="matrix-input" data-quadrant="not-urgent-important" placeholder="Add task...">
+                            <input type="number" class="matrix-duration" data-quadrant="not-urgent-important" placeholder="Hrs" min="0.5" step="0.5">
+                            <input type="date" class="matrix-schedule" data-quadrant="not-urgent-important" title="Schedule date">
+                            <button class="btn btn-add add-matrix-task" data-quadrant="not-urgent-important">+</button>
+                        </div>
+                        <ul class="matrix-task-list" data-quadrant="not-urgent-important"></ul>
+                    </div>
+
+                    <div class="matrix-quadrant urgent-not-important">
+                        <div class="quadrant-header">
+                            <h3>⚡ Urgent, Not Important</h3>
+                            <span class="quadrant-action">Delegate</span>
+                        </div>
+                        <div class="matrix-task-input-group">
+                            <input type="text" class="matrix-input" data-quadrant="urgent-not-important" placeholder="Add task...">
+                            <input type="number" class="matrix-duration" data-quadrant="urgent-not-important" placeholder="Hrs" min="0.5" step="0.5">
+                            <input type="date" class="matrix-schedule" data-quadrant="urgent-not-important" title="Schedule date">
+                            <button class="btn btn-add add-matrix-task" data-quadrant="urgent-not-important">+</button>
+                        </div>
+                        <ul class="matrix-task-list" data-quadrant="urgent-not-important"></ul>
+                    </div>
+
+                    <div class="matrix-quadrant not-urgent-not-important">
+                        <div class="quadrant-header">
+                            <h3>🗑️ Not Urgent, Not Important</h3>
+                            <span class="quadrant-action">Eliminate</span>
+                        </div>
+                        <div class="matrix-task-input-group">
+                            <input type="text" class="matrix-input" data-quadrant="not-urgent-not-important" placeholder="Add task...">
+                            <input type="number" class="matrix-duration" data-quadrant="not-urgent-not-important" placeholder="Hrs" min="0.5" step="0.5">
+                            <input type="date" class="matrix-schedule" data-quadrant="not-urgent-not-important" title="Schedule date">
+                            <button class="btn btn-add add-matrix-task" data-quadrant="not-urgent-not-important">+</button>
+                        </div>
+                        <ul class="matrix-task-list" data-quadrant="not-urgent-not-important"></ul>
+                    </div>
+                </div>
+
+                <div class="matrix-stats">
+                    <h3>📊 Progress Overview</h3>
+                    <div class="stats-grid" id="matrixStats"></div>
+                </div>
+            </div>
+
+            <!-- Weekly Schedule Tab -->
+            <div id="schedule" class="tab-content">
+                <div class="week-header">
+                    <button id="prevWeek" class="btn btn-nav">← Prev</button>
+                    <div class="week-info">
+                        <h2 id="weekTitle">This Week</h2>
+                        <p id="weekDateRange" class="week-range"></p>
+                    </div>
+                    <button id="nextWeek" class="btn btn-nav">Next →</button>
+                    <button id="thisWeekBtn" class="btn btn-primary">Today</button>
+                </div>
+
+                <!-- Stopwatch Timer Component -->
+                <div id="timerWidget" class="timer-widget hidden">
+                    <div class="timer-close" id="closeTimer">×</div>
+                    <div class="timer-task-name" id="timerTaskName">Task Name</div>
+                    <div class="stopwatch-container">
+                        <svg class="stopwatch-svg" viewBox="0 0 200 200">
+                            <circle class="stopwatch-bg" cx="100" cy="100" r="90"/>
+                            <circle class="stopwatch-progress" cx="100" cy="100" r="90" id="progressCircle"/>
+                        </svg>
+                        <div class="timer-display" id="timerDisplay">00:00</div>
+                    </div>
+                    <div class="timer-controls">
+                        <button id="pauseTimer" class="btn btn-secondary">⏸ Pause</button>
+                        <button id="stopTimer" class="btn btn-danger">⏹ Stop</button>
+                    </div>
+                </div>
+
+                <!-- Vertical Week Days List -->
+                <div class="week-days-container" id="weekDaysContainer">
+                    <!-- Week days will be dynamically generated here -->
+                </div>
+
+                <!-- Floating Add Task Button -->
+                <button class="floating-add-btn" id="floatingAddBtn" title="Add new task">
+                    <span class="plus-icon">+</span>
+                    <span class="btn-text">Add Task</span>
+                </button>
+            </div>
+
+            <!-- Task Modal Popup -->
+            <div id="taskModal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Add New Task</h3>
+                        <button class="modal-close" id="closeModal">×</button>
+                    </div>
+                    <div class="modal-body">
                         <div class="form-group">
-                            <label>Priority</label>
-                            <select id="modalTaskPriority" class="form-select">
-                                <option value="">None</option>
-                                <option value="urgent-important">🔥 Urgent & Important</option>
-                                <option value="not-urgent-important">📅 Not Urgent & Important</option>
-                                <option value="urgent-not-important">⚡ Urgent & Not Important</option>
-                                <option value="not-urgent-not-important">🗑️ Low Priority</option>
-                            </select>
+                            <label>Task Name</label>
+                            <input type="text" id="modalTaskName" class="form-input" placeholder="What do you need to do?" autofocus>
                         </div>
                         <div class="form-group">
-                            <label>Duration (hours)</label>
-                            <input type="number" id="modalTaskDuration" class="form-input" placeholder="2.5" min="0" step="0.5">
+                            <label>Day</label>
+                            <select id="modalTaskDay" class="form-select"></select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Priority</label>
+                                <select id="modalTaskPriority" class="form-select">
+                                    <option value="">None</option>
+                                    <option value="urgent-important">🔥 Do First</option>
+                                    <option value="not-urgent-important">📅 Schedule</option>
+                                    <option value="urgent-not-important">⚡ Delegate</option>
+                                    <option value="not-urgent-not-important">🗑️ Low Priority</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Duration (hours)</label>
+                                <input type="number" id="modalTaskDuration" class="form-input" placeholder="2.5" min="0" step="0.5">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" id="cancelModal">Cancel</button>
+                        <button class="btn btn-primary" id="saveTask">Add Task</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monthly Planner Tab -->
+            <div id="monthly" class="tab-content">
+                <div class="planner-header">
+                    <button id="prevMonth" class="btn btn-nav">← Prev</button>
+                    <div class="month-display">
+                        <select id="monthSelect" class="month-select"></select>
+                        <select id="yearSelect" class="year-select"></select>
+                    </div>
+                    <button id="nextMonth" class="btn btn-nav">Next →</button>
+                    <button id="thisMonthBtn" class="btn btn-primary">This Month</button>
+                </div>
+
+                <div class="calendar" id="calendar"></div>
+
+                <div class="monthly-sections">
+                    <div class="monthly-goals">
+                        <h3>🎯 Monthly Goals</h3>
+                        <div class="goal-input-group">
+                            <input type="text" id="monthlyGoalInput" placeholder="Add a goal for this month..." class="goal-input">
+                            <button id="addMonthlyGoal" class="btn btn-add">+</button>
+                        </div>
+                        <ul id="monthlyGoalList" class="goal-list"></ul>
+                    </div>
+
+                    <div class="lessons-section">
+                        <h3>💡 Monthly Reflections</h3>
+                        <textarea id="monthlyLessons" placeholder="What did you learn this month? What went well? What could be improved?" class="lessons-textarea"></textarea>
+                        <button id="saveMonthlyLessons" class="btn btn-primary">Save Reflections</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notes Tab -->
+            <div id="notes" class="tab-content">
+                <div class="page-header">
+                    <h2>📝 Notes</h2>
+                </div>
+
+                <div class="notes-controls">
+                    <input type="text" id="noteTitle" placeholder="Note title..." class="note-title-input">
+                    <button id="addNote" class="btn btn-primary">+ New Note</button>
+                </div>
+
+                <div class="notes-container">
+                    <div class="notes-sidebar" id="notesList"></div>
+                    <div class="notes-editor">
+                        <div id="noteEditor" class="note-editor-area">
+                            <p class="empty-state">Select a note or create a new one</p>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" id="cancelModal">Cancel</button>
-                    <button class="btn btn-primary" id="saveTask">Add Task</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Monthly Planner Tab -->
-        <div id="monthly" class="tab-content">
-            <div class="planner-header">
-                <button id="prevMonth" class="btn btn-nav">← Previous Month</button>
-                <div class="month-display">
-                    <select id="monthSelect" class="month-select"></select>
-                    <select id="yearSelect" class="year-select"></select>
-                </div>
-                <button id="nextMonth" class="btn btn-nav">Next Month →</button>
-                <button id="thisMonthBtn" class="btn btn-primary">This Month</button>
             </div>
 
-            <div class="holiday-display" id="monthlyHoliday"></div>
-
-            <div class="calendar" id="calendar"></div>
-
-            <div class="eisenhower-scheduled">
-                <h3>📊 Scheduled Tasks from Eisenhower Matrix</h3>
-                <div id="monthlyEisenhowerTasks" class="scheduled-tasks-container"></div>
-            </div>
-
-            <div class="monthly-goals">
-                <h3>🎯 Monthly Goals</h3>
-                <div class="goal-input-group">
-                    <input type="text" id="monthlyGoalInput" placeholder="Add monthly goal..." class="goal-input">
-                    <button id="addMonthlyGoal" class="btn btn-add">+</button>
-                </div>
-                <ul id="monthlyGoalList" class="goal-list"></ul>
-            </div>
-
-            <div class="monthly-events">
-                <h3>🎯 Important Events This Month</h3>
-                <div class="event-input-group">
-                    <input type="text" id="monthlyEventInput" placeholder="Add monthly event..." class="event-input">
-                    <button id="addMonthlyEvent" class="btn btn-add">+</button>
-                </div>
-                <ul id="monthlyEventList" class="event-list"></ul>
-            </div>
-
-            <div class="lessons-section">
-                <h3>💡 Lessons Learned This Month</h3>
-                <textarea id="monthlyLessons" placeholder="What did you learn this month?" class="lessons-textarea"></textarea>
-                <button id="saveMonthlyLessons" class="btn btn-primary">Save Lessons</button>
-            </div>
-        </div>
-
-        <!-- Eisenhower Matrix Tab -->
-        <div id="eisenhower" class="tab-content active">
-            <h2>📊 Eisenhower Matrix</h2>
-            <p class="matrix-description">Prioritize tasks by urgency and importance, add duration, and schedule them</p>
-
-            <div class="eisenhower-matrix">
-                <div class="matrix-quadrant urgent-important">
-                    <h3>🔥 Urgent & Important</h3>
-                    <p class="quadrant-desc">Do First</p>
-                    <div class="matrix-task-input-group">
-                        <input type="text" class="matrix-input" data-quadrant="urgent-important" placeholder="Task name...">
-                        <input type="number" class="matrix-duration" data-quadrant="urgent-important" placeholder="Hours" min="0.5" step="0.5">
-                        <input type="date" class="matrix-schedule" data-quadrant="urgent-important">
-                        <button class="btn btn-add add-matrix-task" data-quadrant="urgent-important">+</button>
-                    </div>
-                    <ul class="matrix-task-list" data-quadrant="urgent-important"></ul>
-                </div>
-
-                <div class="matrix-quadrant not-urgent-important">
-                    <h3>📅 Not Urgent & Important</h3>
-                    <p class="quadrant-desc">Schedule</p>
-                    <div class="matrix-task-input-group">
-                        <input type="text" class="matrix-input" data-quadrant="not-urgent-important" placeholder="Task name...">
-                        <input type="number" class="matrix-duration" data-quadrant="not-urgent-important" placeholder="Hours" min="0.5" step="0.5">
-                        <input type="date" class="matrix-schedule" data-quadrant="not-urgent-important">
-                        <button class="btn btn-add add-matrix-task" data-quadrant="not-urgent-important">+</button>
-                    </div>
-                    <ul class="matrix-task-list" data-quadrant="not-urgent-important"></ul>
-                </div>
-
-                <div class="matrix-quadrant urgent-not-important">
-                    <h3>⚡ Urgent & Not Important</h3>
-                    <p class="quadrant-desc">Delegate</p>
-                    <div class="matrix-task-input-group">
-                        <input type="text" class="matrix-input" data-quadrant="urgent-not-important" placeholder="Task name...">
-                        <input type="number" class="matrix-duration" data-quadrant="urgent-not-important" placeholder="Hours" min="0.5" step="0.5">
-                        <input type="date" class="matrix-schedule" data-quadrant="urgent-not-important">
-                        <button class="btn btn-add add-matrix-task" data-quadrant="urgent-not-important">+</button>
-                    </div>
-                    <ul class="matrix-task-list" data-quadrant="urgent-not-important"></ul>
-                </div>
-
-                <div class="matrix-quadrant not-urgent-not-important">
-                    <h3>🗑️ Not Urgent & Not Important</h3>
-                    <p class="quadrant-desc">Eliminate</p>
-                    <div class="matrix-task-input-group">
-                        <input type="text" class="matrix-input" data-quadrant="not-urgent-not-important" placeholder="Task name...">
-                        <input type="number" class="matrix-duration" data-quadrant="not-urgent-not-important" placeholder="Hours" min="0.5" step="0.5">
-                        <input type="date" class="matrix-schedule" data-quadrant="not-urgent-not-important">
-                        <button class="btn btn-add add-matrix-task" data-quadrant="not-urgent-not-important">+</button>
-                    </div>
-                    <ul class="matrix-task-list" data-quadrant="not-urgent-not-important"></ul>
-                </div>
-            </div>
-
-            <div class="matrix-stats">
-                <h3>📊 Time Allocation Summary</h3>
-                <div class="stats-grid" id="matrixStats"></div>
-            </div>
-        </div>
-
-        <!-- Notes Tab -->
-        <div id="notes" class="tab-content">
-            <h2>📝 Notes</h2>
-
-            <div class="notes-controls">
-                <input type="text" id="noteTitle" placeholder="Note title..." class="note-title-input">
-                <button id="addNote" class="btn btn-primary">+ New Note</button>
-            </div>
-
-            <div class="notes-container">
-                <div class="notes-sidebar" id="notesList"></div>
-                <div class="notes-editor">
-                    <div id="noteEditor" class="note-editor-area">
-                        <p class="empty-state">Select a note or create a new one</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Insights & Events Tab -->
-        <div id="insights" class="tab-content">
-            <h2>🌟 Insights & Important Events</h2>
-
-            <div class="insights-grid">
-                <div class="insight-card">
-                    <h3>📚 All Lessons Learned</h3>
-                    <div id="allLessons" class="lessons-display"></div>
-                </div>
-
-                <div class="insight-card">
-                    <h3>🎯 All Important Events</h3>
-                    <div class="events-filter">
-                        <button class="filter-btn active" data-filter="all">All</button>
-                        <button class="filter-btn" data-filter="daily">Daily</button>
-                        <button class="filter-btn" data-filter="weekly">Weekly</button>
-                        <button class="filter-btn" data-filter="monthly">Monthly</button>
-                    </div>
-                    <div id="allEvents" class="events-display"></div>
-                </div>
-            </div>
-        </div>
         </main>
     </div>
 
