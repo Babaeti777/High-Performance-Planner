@@ -1221,6 +1221,356 @@ function initSidebarToggle() {
     });
 }
 
+// ==================== Google Calendar Integration ====================
+const GoogleCalendarState = {
+    isConnected: false,
+    accessToken: null,
+    tokenClient: null,
+    clientId: localStorage.getItem('googleClientId') || '',
+    syncToGoogle: localStorage.getItem('syncToGoogle') !== 'false',
+    syncFromGoogle: localStorage.getItem('syncFromGoogle') === 'true'
+};
+
+const GOOGLE_API_SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
+
+// Toast notification helper
+function showToast(message, duration = 3000) {
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toastMessage');
+    toastMessage.textContent = message;
+    toast.classList.remove('hidden');
+    setTimeout(() => {
+        toast.classList.add('hidden');
+    }, duration);
+}
+
+// Update Google connection status UI
+function updateGoogleStatus(connected) {
+    GoogleCalendarState.isConnected = connected;
+    const statusEl = document.getElementById('googleStatus');
+    const connectBtn = document.getElementById('googleConnectBtn');
+    const syncBtn = document.getElementById('googleSyncBtn');
+
+    if (connected) {
+        statusEl.className = 'google-status connected';
+        statusEl.querySelector('.status-text').textContent = 'Connected';
+        connectBtn.innerHTML = '<span>🔌</span> <span>Disconnect</span>';
+        syncBtn.style.display = 'flex';
+    } else {
+        statusEl.className = 'google-status disconnected';
+        statusEl.querySelector('.status-text').textContent = 'Not connected';
+        connectBtn.innerHTML = '<span>📅</span> <span>Connect Google</span>';
+        syncBtn.style.display = 'none';
+    }
+}
+
+// Initialize Google API client
+async function initGoogleApi() {
+    if (!GoogleCalendarState.clientId) return;
+
+    try {
+        await new Promise((resolve, reject) => {
+            gapi.load('client', { callback: resolve, onerror: reject });
+        });
+
+        await gapi.client.init({
+            discoveryDocs: [DISCOVERY_DOC],
+        });
+
+        // Initialize token client
+        GoogleCalendarState.tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: GoogleCalendarState.clientId,
+            scope: GOOGLE_API_SCOPES,
+            callback: (response) => {
+                if (response.error) {
+                    console.error('Auth error:', response.error);
+                    showToast('Authentication failed');
+                    return;
+                }
+                GoogleCalendarState.accessToken = response.access_token;
+                updateGoogleStatus(true);
+                showToast('Connected to Google Calendar!');
+            },
+        });
+
+        // Check if we have a stored token
+        const storedToken = sessionStorage.getItem('googleAccessToken');
+        if (storedToken) {
+            gapi.client.setToken({ access_token: storedToken });
+            GoogleCalendarState.accessToken = storedToken;
+            updateGoogleStatus(true);
+        }
+    } catch (error) {
+        console.error('Failed to initialize Google API:', error);
+    }
+}
+
+// Connect to Google Calendar
+function connectGoogleCalendar() {
+    if (!GoogleCalendarState.clientId) {
+        document.getElementById('googleSettingsModal').classList.remove('hidden');
+        return;
+    }
+
+    if (GoogleCalendarState.isConnected) {
+        // Disconnect
+        gapi.client.setToken(null);
+        GoogleCalendarState.accessToken = null;
+        sessionStorage.removeItem('googleAccessToken');
+        updateGoogleStatus(false);
+        showToast('Disconnected from Google Calendar');
+        return;
+    }
+
+    // Request access
+    if (GoogleCalendarState.tokenClient) {
+        GoogleCalendarState.tokenClient.requestAccessToken({ prompt: 'consent' });
+    }
+}
+
+// Sync tasks to Google Calendar
+async function syncToGoogleCalendar() {
+    if (!GoogleCalendarState.isConnected || !GoogleCalendarState.syncToGoogle) {
+        showToast('Connect to Google Calendar first');
+        return;
+    }
+
+    showToast('Syncing to Google Calendar...');
+
+    let syncedCount = 0;
+    const quadrantColors = {
+        'urgent-important': '11', // Red
+        'not-urgent-important': '9', // Blue
+        'urgent-not-important': '5', // Yellow
+        'not-urgent-not-important': '8' // Gray
+    };
+
+    try {
+        // Sync scheduled tasks from Eisenhower matrix
+        for (const quadrant of Object.keys(AppState.data.eisenhower)) {
+            const tasks = AppState.data.eisenhower[quadrant];
+
+            for (const task of tasks) {
+                if (!task.scheduledDate || task.googleEventId) continue;
+
+                const startDate = new Date(task.scheduledDate + 'T09:00:00');
+                const endDate = new Date(startDate);
+                endDate.setHours(startDate.getHours() + (task.duration || 1));
+
+                const event = {
+                    summary: task.text,
+                    description: `Priority: ${quadrant.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}\nCreated by High-Performance Planner`,
+                    start: {
+                        dateTime: startDate.toISOString(),
+                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                    },
+                    end: {
+                        dateTime: endDate.toISOString(),
+                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                    },
+                    colorId: quadrantColors[quadrant]
+                };
+
+                const response = await gapi.client.calendar.events.insert({
+                    calendarId: 'primary',
+                    resource: event
+                });
+
+                task.googleEventId = response.result.id;
+                syncedCount++;
+            }
+        }
+
+        saveData();
+        showToast(`Synced ${syncedCount} task${syncedCount !== 1 ? 's' : ''} to Google Calendar`);
+    } catch (error) {
+        console.error('Sync error:', error);
+        showToast('Sync failed. Please try again.');
+    }
+}
+
+// Sync events from Google Calendar
+async function syncFromGoogleCalendar() {
+    if (!GoogleCalendarState.isConnected || !GoogleCalendarState.syncFromGoogle) {
+        return;
+    }
+
+    showToast('Importing from Google Calendar...');
+
+    try {
+        const today = new Date();
+        const nextMonth = new Date(today);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+        const response = await gapi.client.calendar.events.list({
+            calendarId: 'primary',
+            timeMin: today.toISOString(),
+            timeMax: nextMonth.toISOString(),
+            singleEvents: true,
+            orderBy: 'startTime',
+            maxResults: 100
+        });
+
+        const events = response.result.items || [];
+        let importedCount = 0;
+
+        for (const event of events) {
+            if (!event.start.dateTime) continue; // Skip all-day events
+
+            const startDate = new Date(event.start.dateTime);
+            const endDate = new Date(event.end.dateTime);
+            const dateKey = formatDate(startDate);
+            const duration = (endDate - startDate) / (1000 * 60 * 60); // hours
+
+            // Check if already exists
+            const existingTasks = AppState.data.daily[dateKey]?.tasks || [];
+            const alreadyExists = existingTasks.some(t => t.googleEventId === event.id);
+
+            if (!alreadyExists) {
+                if (!AppState.data.daily[dateKey]) {
+                    AppState.data.daily[dateKey] = { tasks: [] };
+                }
+
+                AppState.data.daily[dateKey].tasks.push({
+                    id: Date.now() + Math.random(),
+                    text: event.summary || 'Untitled Event',
+                    completed: false,
+                    duration: Math.round(duration * 10) / 10,
+                    source: 'google',
+                    googleEventId: event.id,
+                    createdAt: new Date().toISOString()
+                });
+
+                importedCount++;
+            }
+        }
+
+        if (importedCount > 0) {
+            saveData();
+            renderWeeklyView();
+        }
+
+        showToast(`Imported ${importedCount} event${importedCount !== 1 ? 's' : ''} from Google Calendar`);
+    } catch (error) {
+        console.error('Import error:', error);
+        showToast('Import failed. Please try again.');
+    }
+}
+
+// Full sync (both directions)
+async function fullGoogleSync() {
+    if (!GoogleCalendarState.isConnected) {
+        showToast('Connect to Google Calendar first');
+        return;
+    }
+
+    const syncBtn = document.getElementById('googleSyncBtn');
+    syncBtn.innerHTML = '<span>⏳</span> <span>Syncing...</span>';
+    syncBtn.disabled = true;
+
+    try {
+        if (GoogleCalendarState.syncToGoogle) {
+            await syncToGoogleCalendar();
+        }
+        if (GoogleCalendarState.syncFromGoogle) {
+            await syncFromGoogleCalendar();
+        }
+    } finally {
+        syncBtn.innerHTML = '<span>🔄</span> <span>Sync Now</span>';
+        syncBtn.disabled = false;
+    }
+}
+
+// Initialize Google Calendar UI handlers
+function initGoogleCalendar() {
+    const connectBtn = document.getElementById('googleConnectBtn');
+    const syncBtn = document.getElementById('googleSyncBtn');
+    const settingsModal = document.getElementById('googleSettingsModal');
+    const closeSettings = document.getElementById('closeGoogleSettings');
+    const cancelSettings = document.getElementById('cancelGoogleSettings');
+    const saveSettings = document.getElementById('saveGoogleSettings');
+    const clientIdInput = document.getElementById('googleClientId');
+    const syncToGoogleCheckbox = document.getElementById('syncToGoogle');
+    const syncFromGoogleCheckbox = document.getElementById('syncFromGoogle');
+
+    // Load saved settings
+    if (GoogleCalendarState.clientId) {
+        clientIdInput.value = GoogleCalendarState.clientId;
+    }
+    syncToGoogleCheckbox.checked = GoogleCalendarState.syncToGoogle;
+    syncFromGoogleCheckbox.checked = GoogleCalendarState.syncFromGoogle;
+
+    // Connect button
+    connectBtn.addEventListener('click', () => {
+        if (!GoogleCalendarState.clientId) {
+            settingsModal.classList.remove('hidden');
+        } else {
+            connectGoogleCalendar();
+        }
+    });
+
+    // Sync button
+    syncBtn.addEventListener('click', fullGoogleSync);
+
+    // Settings modal handlers
+    const closeSettingsModal = () => {
+        settingsModal.classList.add('hidden');
+    };
+
+    closeSettings.addEventListener('click', closeSettingsModal);
+    cancelSettings.addEventListener('click', closeSettingsModal);
+
+    settingsModal.addEventListener('click', (e) => {
+        if (e.target === settingsModal) {
+            closeSettingsModal();
+        }
+    });
+
+    // Save settings
+    saveSettings.addEventListener('click', async () => {
+        const clientId = clientIdInput.value.trim();
+        const syncTo = syncToGoogleCheckbox.checked;
+        const syncFrom = syncFromGoogleCheckbox.checked;
+
+        if (!clientId) {
+            showToast('Please enter a Client ID');
+            return;
+        }
+
+        // Save settings
+        GoogleCalendarState.clientId = clientId;
+        GoogleCalendarState.syncToGoogle = syncTo;
+        GoogleCalendarState.syncFromGoogle = syncFrom;
+
+        localStorage.setItem('googleClientId', clientId);
+        localStorage.setItem('syncToGoogle', syncTo);
+        localStorage.setItem('syncFromGoogle', syncFrom);
+
+        closeSettingsModal();
+
+        // Initialize Google API with new client ID
+        await initGoogleApi();
+
+        // Try to connect
+        connectGoogleCalendar();
+    });
+
+    // Initialize Google API if client ID exists
+    if (GoogleCalendarState.clientId) {
+        // Wait for Google API to load
+        const checkGapiLoaded = setInterval(() => {
+            if (typeof gapi !== 'undefined' && typeof google !== 'undefined') {
+                clearInterval(checkGapiLoaded);
+                initGoogleApi();
+            }
+        }, 100);
+
+        // Timeout after 5 seconds
+        setTimeout(() => clearInterval(checkGapiLoaded), 5000);
+    }
+}
+
 // ==================== Initialize App ====================
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
@@ -1231,4 +1581,5 @@ document.addEventListener('DOMContentLoaded', () => {
     initNotes();
     initImportExport();
     initSidebarToggle();
+    initGoogleCalendar();
 });
