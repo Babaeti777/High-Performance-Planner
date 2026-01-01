@@ -278,20 +278,45 @@
                 </div>
             </div>
 
-            <!-- Stopwatch Timer Component -->
-            <div id="timerWidget" class="timer-widget hidden">
-                <div class="timer-close" id="closeTimer">×</div>
-                <div class="timer-task-name" id="timerTaskName">Task Name</div>
-                <div class="stopwatch-container">
-                    <svg class="stopwatch-svg" viewBox="0 0 200 200">
-                        <circle class="stopwatch-bg" cx="100" cy="100" r="90"/>
-                        <circle class="stopwatch-progress" cx="100" cy="100" r="90" id="progressCircle"/>
-                    </svg>
-                    <div class="timer-display" id="timerDisplay">00:00</div>
-                </div>
-                <div class="timer-controls">
-                    <button id="pauseTimer" class="btn btn-secondary">⏸ Pause</button>
-                    <button id="stopTimer" class="btn btn-danger">⏹ Stop</button>
+            <!-- Enhanced Countdown Timer Modal -->
+            <div id="timerModal" class="timer-modal hidden">
+                <div class="timer-modal-content" id="timerModalContent">
+                    <div class="timer-header">
+                        <button class="timer-fullscreen-btn" id="timerFullscreenBtn" title="Fullscreen (Ctrl+Esc to exit)">⛶</button>
+                        <button class="timer-close-btn" id="closeTimerModal">×</button>
+                    </div>
+
+                    <div class="timer-body">
+                        <div class="timer-task-info">
+                            <span class="timer-task-icon">⏳</span>
+                            <h2 class="timer-task-name" id="timerTaskName">Task Name</h2>
+                        </div>
+
+                        <div class="countdown-container">
+                            <svg class="countdown-svg" viewBox="0 0 200 200">
+                                <circle class="countdown-bg" cx="100" cy="100" r="90"/>
+                                <circle class="countdown-progress" cx="100" cy="100" r="90" id="countdownProgress"/>
+                            </svg>
+                            <div class="countdown-display">
+                                <span class="countdown-time" id="countdownDisplay">00:00:00</span>
+                                <span class="countdown-label" id="countdownLabel">remaining</span>
+                            </div>
+                        </div>
+
+                        <div class="timer-controls">
+                            <button id="timerPlayPause" class="timer-control-btn play-pause">
+                                <span class="play-icon">▶</span>
+                                <span class="pause-icon hidden">⏸</span>
+                            </button>
+                            <button id="timerRestart" class="timer-control-btn restart" title="Start Over">↻</button>
+                            <button id="timerStop" class="timer-control-btn stop" title="Stop & Save">⏹</button>
+                        </div>
+
+                        <div class="motivation-container">
+                            <p class="motivation-quote" id="motivationQuote">"The secret of getting ahead is getting started."</p>
+                            <span class="motivation-author" id="motivationAuthor">— Mark Twain</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 

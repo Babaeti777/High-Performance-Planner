@@ -27,15 +27,43 @@ const AppState = {
     }
 };
 
-// Timer state for task timing
+// Timer state for countdown timer
 const TimerState = {
     taskName: '',
-    startTime: null,
-    elapsed: 0,
+    taskId: null,
+    taskDateKey: null,
+    originalDuration: 0,
+    remainingSeconds: 0,
     running: false,
     interval: null,
-    taskDuration: 0
+    motivationInterval: null,
+    isFullscreen: false,
+    isOvertime: false
 };
+
+// Motivational quotes
+const MOTIVATION_QUOTES = [
+    { quote: "The secret of getting ahead is getting started.", author: "Mark Twain" },
+    { quote: "Focus on being productive instead of busy.", author: "Tim Ferriss" },
+    { quote: "It's not about having time, it's about making time.", author: "Unknown" },
+    { quote: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
+    { quote: "Don't watch the clock; do what it does. Keep going.", author: "Sam Levenson" },
+    { quote: "You don't have to be great to start, but you have to start to be great.", author: "Zig Ziglar" },
+    { quote: "Action is the foundational key to all success.", author: "Pablo Picasso" },
+    { quote: "The way to get started is to quit talking and begin doing.", author: "Walt Disney" },
+    { quote: "Your time is limited, don't waste it living someone else's life.", author: "Steve Jobs" },
+    { quote: "Discipline is the bridge between goals and accomplishment.", author: "Jim Rohn" },
+    { quote: "Small daily improvements are the key to staggering long-term results.", author: "Unknown" },
+    { quote: "Productivity is never an accident. It is always the result of commitment.", author: "Paul J. Meyer" },
+    { quote: "The best time to plant a tree was 20 years ago. The second best time is now.", author: "Chinese Proverb" },
+    { quote: "Success is the sum of small efforts repeated day in and day out.", author: "Robert Collier" },
+    { quote: "What you do today can improve all your tomorrows.", author: "Ralph Marston" },
+    { quote: "Energy and persistence conquer all things.", author: "Benjamin Franklin" },
+    { quote: "You are never too old to set another goal or to dream a new dream.", author: "C.S. Lewis" },
+    { quote: "The future depends on what you do today.", author: "Mahatma Gandhi" },
+    { quote: "Start where you are. Use what you have. Do what you can.", author: "Arthur Ashe" },
+    { quote: "Believe you can and you're halfway there.", author: "Theodore Roosevelt" }
+];
 
 // Eisenhower quadrant colors
 const QUADRANT_COLORS = {
@@ -672,7 +700,7 @@ function renderDayView(date) {
         `;
 
         ganttBar.addEventListener('click', () => {
-            startTaskTimer(task);
+            startTaskTimer(task, dateKey);
         });
 
         ganttChart.appendChild(ganttBar);
@@ -695,7 +723,7 @@ function renderDayView(date) {
                 </div>
             </div>
             <div class="task-actions">
-                <button class="task-start-btn" title="Start timer">▶</button>
+                <button class="timer-icon-btn" title="Start countdown timer">⏳</button>
                 <button class="task-delete-btn" title="Delete">×</button>
             </div>
         `;
@@ -706,9 +734,9 @@ function renderDayView(date) {
             renderDayView(date);
         });
 
-        const startBtn = taskItem.querySelector('.task-start-btn');
-        startBtn.addEventListener('click', () => {
-            startTaskTimer(task);
+        const timerBtn = taskItem.querySelector('.timer-icon-btn');
+        timerBtn.addEventListener('click', () => {
+            startTaskTimer(task, dateKey);
         });
 
         const deleteBtn = taskItem.querySelector('.task-delete-btn');
@@ -924,94 +952,295 @@ function openTaskModal(date) {
     document.getElementById('modalTaskName').focus();
 }
 
-// ==================== Timer ====================
+// ==================== Enhanced Countdown Timer ====================
 function initTimer() {
-    const closeTimer = document.getElementById('closeTimer');
-    const pauseTimer = document.getElementById('pauseTimer');
-    const stopTimer = document.getElementById('stopTimer');
+    const timerModal = document.getElementById('timerModal');
+    const closeBtn = document.getElementById('closeTimerModal');
+    const playPauseBtn = document.getElementById('timerPlayPause');
+    const restartBtn = document.getElementById('timerRestart');
+    const stopBtn = document.getElementById('timerStop');
+    const fullscreenBtn = document.getElementById('timerFullscreenBtn');
 
-    if (!closeTimer) return;
+    if (!timerModal) return;
 
-    closeTimer.addEventListener('click', () => {
-        document.getElementById('timerWidget').classList.add('hidden');
-        pauseTimerFn();
+    // Close button
+    closeBtn.addEventListener('click', () => {
+        closeTimerAndSave();
     });
 
-    pauseTimer.addEventListener('click', () => {
+    // Play/Pause button
+    playPauseBtn.addEventListener('click', () => {
         if (TimerState.running) {
-            pauseTimerFn();
-            pauseTimer.textContent = '▶ Resume';
+            pauseCountdown();
         } else {
-            resumeTimerFn();
-            pauseTimer.textContent = '⏸ Pause';
+            resumeCountdown();
         }
     });
 
-    stopTimer.addEventListener('click', () => {
-        stopTimerFn();
-        document.getElementById('timerWidget').classList.add('hidden');
+    // Restart button
+    restartBtn.addEventListener('click', () => {
+        restartCountdown();
+    });
+
+    // Stop button - saves remaining time
+    stopBtn.addEventListener('click', () => {
+        closeTimerAndSave();
+    });
+
+    // Fullscreen button
+    fullscreenBtn.addEventListener('click', () => {
+        toggleFullscreen();
+    });
+
+    // Keyboard handler for Ctrl+Esc
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'Escape' && TimerState.isFullscreen) {
+            exitFullscreen();
+        }
+        // Also allow just Escape to exit fullscreen
+        if (e.key === 'Escape' && TimerState.isFullscreen) {
+            exitFullscreen();
+        }
+    });
+
+    // Click outside to close (when not fullscreen)
+    timerModal.addEventListener('click', (e) => {
+        if (e.target === timerModal && !TimerState.isFullscreen) {
+            closeTimerAndSave();
+        }
     });
 }
 
-function startTaskTimer(task) {
+function startTaskTimer(task, dateKey = null) {
+    const durationHours = task.duration || 1;
+    const durationSeconds = Math.floor(durationHours * 3600);
+
     TimerState.taskName = task.text;
-    TimerState.startTime = Date.now();
-    TimerState.elapsed = 0;
+    TimerState.taskId = task.id;
+    TimerState.taskDateKey = dateKey;
+    TimerState.originalDuration = durationHours;
+    TimerState.remainingSeconds = durationSeconds;
+    TimerState.running = false;
+    TimerState.isOvertime = false;
+
+    // Update UI
+    const timerModal = document.getElementById('timerModal');
+    const taskNameEl = document.getElementById('timerTaskName');
+
+    taskNameEl.textContent = task.text;
+    timerModal.classList.remove('hidden');
+
+    // Reset progress circle
+    updateCountdownDisplay();
+    updateProgressCircle();
+
+    // Show initial quote
+    showRandomMotivation();
+
+    // Start motivation rotation (every 90 seconds)
+    TimerState.motivationInterval = setInterval(showRandomMotivation, 90000);
+
+    // Auto-start the timer
+    resumeCountdown();
+}
+
+function resumeCountdown() {
     TimerState.running = true;
-    TimerState.taskDuration = task.duration || 0;
+    updatePlayPauseButton();
 
-    const timerWidget = document.getElementById('timerWidget');
-    const timerTaskName = document.getElementById('timerTaskName');
-    const pauseTimer = document.getElementById('pauseTimer');
+    TimerState.interval = setInterval(() => {
+        if (!TimerState.running) return;
 
-    timerWidget.classList.remove('hidden');
-    timerTaskName.textContent = task.text;
-    pauseTimer.textContent = '⏸ Pause';
+        TimerState.remainingSeconds--;
 
-    updateTimer();
-    TimerState.interval = setInterval(updateTimer, 1000);
+        // Check for overtime
+        if (TimerState.remainingSeconds < 0 && !TimerState.isOvertime) {
+            TimerState.isOvertime = true;
+            document.getElementById('countdownLabel').textContent = 'overtime';
+            document.getElementById('timerModalContent').classList.add('overtime');
+        }
+
+        updateCountdownDisplay();
+        updateProgressCircle();
+    }, 1000);
 }
 
-function updateTimer() {
-    if (!TimerState.running) return;
-
-    const now = Date.now();
-    TimerState.elapsed = Math.floor((now - TimerState.startTime) / 1000);
-
-    const minutes = Math.floor(TimerState.elapsed / 60);
-    const seconds = TimerState.elapsed % 60;
-
-    const timerDisplay = document.getElementById('timerDisplay');
-    timerDisplay.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
-
-    if (TimerState.taskDuration > 0) {
-        const progressCircle = document.getElementById('progressCircle');
-        const totalSeconds = TimerState.taskDuration * 3600;
-        const progress = Math.min(TimerState.elapsed / totalSeconds, 1);
-        const dashOffset = 565.48 * (1 - progress);
-        progressCircle.style.strokeDashoffset = dashOffset;
-    }
-}
-
-function pauseTimerFn() {
+function pauseCountdown() {
     TimerState.running = false;
     if (TimerState.interval) {
         clearInterval(TimerState.interval);
+        TimerState.interval = null;
+    }
+    updatePlayPauseButton();
+}
+
+function restartCountdown() {
+    pauseCountdown();
+
+    const durationSeconds = Math.floor(TimerState.originalDuration * 3600);
+    TimerState.remainingSeconds = durationSeconds;
+    TimerState.isOvertime = false;
+
+    document.getElementById('countdownLabel').textContent = 'remaining';
+    document.getElementById('timerModalContent').classList.remove('overtime');
+
+    updateCountdownDisplay();
+    updateProgressCircle();
+    resumeCountdown();
+}
+
+function closeTimerAndSave() {
+    pauseCountdown();
+
+    // Clear motivation interval
+    if (TimerState.motivationInterval) {
+        clearInterval(TimerState.motivationInterval);
+        TimerState.motivationInterval = null;
+    }
+
+    // Exit fullscreen if active
+    if (TimerState.isFullscreen) {
+        exitFullscreen();
+    }
+
+    // Calculate remaining time and update task duration
+    if (TimerState.remainingSeconds > 0 && TimerState.taskId) {
+        const remainingHours = Math.round((TimerState.remainingSeconds / 3600) * 100) / 100;
+        updateTaskDuration(TimerState.taskId, TimerState.taskDateKey, remainingHours);
+        showToast(`Task paused. ${formatTimeDisplay(TimerState.remainingSeconds)} remaining saved.`);
+    } else if (TimerState.isOvertime) {
+        const overtimeSeconds = Math.abs(TimerState.remainingSeconds);
+        showToast(`Task overtime by ${formatTimeDisplay(overtimeSeconds)}. Great persistence!`);
+    }
+
+    // Hide modal
+    document.getElementById('timerModal').classList.add('hidden');
+    document.getElementById('timerModalContent').classList.remove('overtime');
+
+    // Reset state
+    TimerState.taskId = null;
+    TimerState.taskDateKey = null;
+    TimerState.isOvertime = false;
+
+    // Refresh views
+    renderCalendar();
+    renderEisenhowerMatrix();
+}
+
+function updateTaskDuration(taskId, dateKey, newDuration) {
+    // Update in daily tasks
+    if (dateKey && AppState.data.daily[dateKey]) {
+        const task = AppState.data.daily[dateKey].tasks.find(t => t.id === taskId);
+        if (task) {
+            task.duration = newDuration;
+        }
+    }
+
+    // Update in Eisenhower matrix
+    for (const quadrant of Object.keys(AppState.data.eisenhower)) {
+        const task = AppState.data.eisenhower[quadrant].find(t => t.id === taskId);
+        if (task) {
+            task.duration = newDuration;
+            break;
+        }
+    }
+
+    saveData();
+}
+
+function updateCountdownDisplay() {
+    const display = document.getElementById('countdownDisplay');
+    const seconds = TimerState.remainingSeconds;
+
+    if (seconds >= 0) {
+        display.textContent = formatTimeDisplay(seconds);
+        display.classList.remove('negative');
+    } else {
+        // Negative time (overtime)
+        display.textContent = '-' + formatTimeDisplay(Math.abs(seconds));
+        display.classList.add('negative');
     }
 }
 
-function resumeTimerFn() {
-    TimerState.running = true;
-    TimerState.startTime = Date.now() - (TimerState.elapsed * 1000);
-    TimerState.interval = setInterval(updateTimer, 1000);
+function formatTimeDisplay(totalSeconds) {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-function stopTimerFn() {
-    pauseTimerFn();
-    TimerState.taskName = '';
-    TimerState.elapsed = 0;
-    document.getElementById('timerDisplay').textContent = '00:00';
-    document.getElementById('progressCircle').style.strokeDashoffset = 565.48;
+function updateProgressCircle() {
+    const progressCircle = document.getElementById('countdownProgress');
+    const totalSeconds = TimerState.originalDuration * 3600;
+
+    if (TimerState.remainingSeconds >= 0) {
+        const progress = TimerState.remainingSeconds / totalSeconds;
+        const dashOffset = 565.48 * (1 - progress);
+        progressCircle.style.strokeDashoffset = dashOffset;
+    } else {
+        // Full circle when in overtime
+        progressCircle.style.strokeDashoffset = 0;
+    }
+}
+
+function updatePlayPauseButton() {
+    const playIcon = document.querySelector('#timerPlayPause .play-icon');
+    const pauseIcon = document.querySelector('#timerPlayPause .pause-icon');
+
+    if (TimerState.running) {
+        playIcon.classList.add('hidden');
+        pauseIcon.classList.remove('hidden');
+    } else {
+        playIcon.classList.remove('hidden');
+        pauseIcon.classList.add('hidden');
+    }
+}
+
+function toggleFullscreen() {
+    if (TimerState.isFullscreen) {
+        exitFullscreen();
+    } else {
+        enterFullscreen();
+    }
+}
+
+function enterFullscreen() {
+    TimerState.isFullscreen = true;
+    document.getElementById('timerModal').classList.add('fullscreen');
+    document.getElementById('timerFullscreenBtn').textContent = '⛶';
+    document.getElementById('timerFullscreenBtn').title = 'Exit Fullscreen (Ctrl+Esc)';
+}
+
+function exitFullscreen() {
+    TimerState.isFullscreen = false;
+    document.getElementById('timerModal').classList.remove('fullscreen');
+    document.getElementById('timerFullscreenBtn').textContent = '⛶';
+    document.getElementById('timerFullscreenBtn').title = 'Fullscreen (Ctrl+Esc to exit)';
+}
+
+function showRandomMotivation() {
+    const randomIndex = Math.floor(Math.random() * MOTIVATION_QUOTES.length);
+    const motivation = MOTIVATION_QUOTES[randomIndex];
+
+    const quoteEl = document.getElementById('motivationQuote');
+    const authorEl = document.getElementById('motivationAuthor');
+
+    // Fade out
+    quoteEl.style.opacity = '0';
+    authorEl.style.opacity = '0';
+
+    setTimeout(() => {
+        quoteEl.textContent = `"${motivation.quote}"`;
+        authorEl.textContent = `— ${motivation.author}`;
+
+        // Fade in
+        quoteEl.style.opacity = '1';
+        authorEl.style.opacity = '1';
+    }, 300);
 }
 
 // ==================== Eisenhower Matrix ====================
@@ -1197,6 +1426,15 @@ function renderEisenhowerMatrix() {
                 textContainer.appendChild(metaInfo);
             }
 
+            // Timer button
+            const timerBtn = document.createElement('button');
+            timerBtn.className = 'timer-icon-btn';
+            timerBtn.title = 'Start countdown timer';
+            timerBtn.textContent = '⏳';
+            timerBtn.addEventListener('click', () => {
+                startTaskTimer(task, task.scheduledDate);
+            });
+
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'delete-btn';
             deleteBtn.textContent = '×';
@@ -1225,9 +1463,15 @@ function renderEisenhowerMatrix() {
                 li.classList.add('completed');
             }
 
+            // Create actions container
+            const actionsContainer = document.createElement('div');
+            actionsContainer.className = 'task-actions';
+            actionsContainer.appendChild(timerBtn);
+            actionsContainer.appendChild(deleteBtn);
+
             li.appendChild(checkbox);
             li.appendChild(textContainer);
-            li.appendChild(deleteBtn);
+            li.appendChild(actionsContainer);
             taskList.appendChild(li);
         });
     });
