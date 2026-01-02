@@ -80,40 +80,51 @@
         <!-- Main Content Area -->
         <main class="main-content">
 
-            <!-- Home Tab with Clock and Routines -->
+            <!-- Home Tab with Full-Window Clock -->
             <div id="home" class="tab-content active">
-                <div class="home-container">
-                    <div class="routine-clock-wrapper">
-                        <div class="routine-clock" id="routineClock">
-                            <svg class="clock-svg" viewBox="0 0 400 400">
-                                <!-- Clock face background -->
-                                <circle class="clock-face" cx="200" cy="200" r="180"/>
-                                <!-- Routine segments will be inserted here -->
-                                <g id="routineSegments"></g>
-                                <!-- Hour markers -->
-                                <g class="clock-markers" id="clockMarkers"></g>
-                                <!-- Clock center -->
-                                <circle class="clock-center" cx="200" cy="200" r="8"/>
-                                <!-- Clock hands -->
-                                <line class="clock-hand hour-hand" id="hourHand" x1="200" y1="200" x2="200" y2="100"/>
-                                <line class="clock-hand minute-hand" id="minuteHand" x1="200" y1="200" x2="200" y2="60"/>
-                                <circle class="clock-center-dot" cx="200" cy="200" r="4"/>
-                            </svg>
-                            <div class="digital-time" id="digitalTime">00:00:00</div>
+                <div class="home-fullscreen">
+                    <div class="clock-container-full">
+                        <svg class="clock-svg-full" viewBox="0 0 400 400" id="mainClock">
+                            <!-- Clock face background -->
+                            <circle class="clock-face" cx="200" cy="200" r="190"/>
+                            <!-- Task segments (scheduled tasks) -->
+                            <g id="taskSegments"></g>
+                            <!-- Routine segments -->
+                            <g id="routineSegments"></g>
+                            <!-- Hour markers -->
+                            <g class="clock-markers" id="clockMarkers"></g>
+                            <!-- Clock center -->
+                            <circle class="clock-center" cx="200" cy="200" r="12"/>
+                            <!-- Clock hands -->
+                            <line class="clock-hand hour-hand" id="hourHand" x1="200" y1="200" x2="200" y2="80"/>
+                            <line class="clock-hand minute-hand" id="minuteHand" x1="200" y1="200" x2="200" y2="45"/>
+                            <circle class="clock-center-dot" cx="200" cy="200" r="6"/>
+                        </svg>
+                        <div class="clock-center-info">
+                            <div class="digital-time-large" id="digitalTime">00:00:00</div>
                             <div class="current-date" id="currentDate"></div>
                         </div>
                     </div>
 
-                    <div class="routines-panel">
-                        <div class="routines-header">
-                            <h3>Daily Routines</h3>
-                            <button class="btn btn-primary btn-sm" id="addRoutineBtn">+ Add Routine</button>
+                    <div class="clock-bottom-bar">
+                        <div class="routines-dropdown">
+                            <button class="dropdown-toggle" id="routinesDropdownToggle">
+                                <span>📋 Daily Routines</span>
+                                <span class="dropdown-arrow">▼</span>
+                            </button>
+                            <div class="dropdown-content hidden" id="routinesDropdownContent">
+                                <div class="dropdown-header">
+                                    <span>Manage Routines</span>
+                                    <button class="btn btn-primary btn-sm" id="addRoutineBtn">+ Add</button>
+                                </div>
+                                <div class="routines-list-compact" id="routinesList">
+                                    <!-- Routines will be rendered here -->
+                                </div>
+                            </div>
                         </div>
-                        <div class="routines-list" id="routinesList">
-                            <!-- Routines will be rendered here -->
-                        </div>
-                        <div class="routine-legend" id="routineLegend">
-                            <!-- Legend will be rendered here -->
+                        <div class="clock-legend" id="clockLegend">
+                            <span class="legend-item"><span class="legend-dot routine-dot"></span> Routines</span>
+                            <span class="legend-item"><span class="legend-dot task-dot"></span> Tasks</span>
                         </div>
                     </div>
                 </div>

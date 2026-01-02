@@ -2271,9 +2271,27 @@ function initHomePage() {
     // Render clock markers
     renderClockMarkers();
 
-    // Render routines
+    // Render everything on clock
     renderRoutines();
     renderRoutineSegments();
+    renderTaskSegments();
+
+    // Dropdown toggle
+    const dropdownToggle = document.getElementById('routinesDropdownToggle');
+    const dropdownContent = document.getElementById('routinesDropdownContent');
+
+    dropdownToggle?.addEventListener('click', () => {
+        dropdownToggle.classList.toggle('active');
+        dropdownContent.classList.toggle('hidden');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.routines-dropdown')) {
+            dropdownToggle?.classList.remove('active');
+            dropdownContent?.classList.add('hidden');
+        }
+    });
 
     // Add routine button
     document.getElementById('addRoutineBtn')?.addEventListener('click', () => {
@@ -2398,6 +2416,57 @@ function describeArc(x, y, radius, startAngle, endAngle) {
     const largeArc = endAngle - startAngle > 180 ? 1 : 0;
 
     return `M ${x} ${y} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+}
+
+// Render today's scheduled tasks on the clock
+function renderTaskSegments() {
+    const segmentsGroup = document.getElementById('taskSegments');
+    if (!segmentsGroup) return;
+
+    segmentsGroup.innerHTML = '';
+
+    const today = formatDate(new Date());
+    const todayTasks = AppState.data.daily[today]?.tasks || [];
+
+    // Filter tasks that have a start time
+    const scheduledTasks = todayTasks.filter(task => task.startTime && task.duration);
+
+    scheduledTasks.forEach(task => {
+        const [hours, mins] = task.startTime.split(':').map(Number);
+        const startMinutes = hours * 60 + mins;
+        const endMinutes = startMinutes + (task.duration || 1) * 60;
+
+        // Convert to 24-hour clock angles
+        const startAngle = (startMinutes / (24 * 60)) * 360 - 90;
+        const endAngle = (endMinutes / (24 * 60)) * 360 - 90;
+
+        // Use inner radius for tasks (routines use outer)
+        const path = describeArc(200, 200, 100, startAngle, endAngle);
+
+        const segment = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        segment.setAttribute('d', path);
+        segment.setAttribute('fill', task.completed ? '#6b7280' : '#10b981');
+        segment.setAttribute('class', 'task-segment');
+        segment.setAttribute('data-id', task.id);
+
+        segmentsGroup.appendChild(segment);
+
+        // Add label for longer tasks
+        if ((task.duration || 1) >= 0.5) {
+            const midAngle = (startAngle + endAngle) / 2;
+            const labelRadian = (midAngle * Math.PI) / 180;
+            const labelX = 200 + Math.cos(labelRadian) * 75;
+            const labelY = 200 + Math.sin(labelRadian) * 75;
+
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', labelX);
+            label.setAttribute('y', labelY + 3);
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('class', 'segment-label');
+            label.textContent = task.text.substring(0, 8);
+            segmentsGroup.appendChild(label);
+        }
+    });
 }
 
 function renderRoutines() {
