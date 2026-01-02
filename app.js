@@ -1767,8 +1767,72 @@ const GoogleCalendarState = {
     tokenClient: null,
     clientId: localStorage.getItem('googleClientId') || '',
     syncToGoogle: localStorage.getItem('syncToGoogle') !== 'false',
-    syncFromGoogle: localStorage.getItem('syncFromGoogle') === 'true'
+    syncFromGoogle: localStorage.getItem('syncFromGoogle') === 'true',
+    availableCalendars: [],
+    selectedCalendars: JSON.parse(localStorage.getItem('selectedCalendars') || '["primary"]')
 };
+
+// Fetch available calendars from Google
+async function fetchAvailableCalendars() {
+    if (!GoogleCalendarState.isConnected) return [];
+
+    try {
+        const response = await gapi.client.calendar.calendarList.list();
+        const calendars = response.result.items || [];
+        GoogleCalendarState.availableCalendars = calendars.map(cal => ({
+            id: cal.id,
+            name: cal.summary,
+            color: cal.backgroundColor,
+            primary: cal.primary || false,
+            accessRole: cal.accessRole
+        }));
+        return GoogleCalendarState.availableCalendars;
+    } catch (error) {
+        console.error('Failed to fetch calendars:', error);
+        return [];
+    }
+}
+
+// Update calendar selection UI in settings
+async function updateCalendarSelectionUI() {
+    const container = document.getElementById('calendarSelectionList');
+    if (!container) return;
+
+    if (!GoogleCalendarState.isConnected) {
+        container.innerHTML = '<p class="calendar-list-empty">Connect to Google Calendar to see your calendars</p>';
+        return;
+    }
+
+    container.innerHTML = '<p class="calendar-list-loading">Loading calendars...</p>';
+
+    const calendars = await fetchAvailableCalendars();
+
+    if (calendars.length === 0) {
+        container.innerHTML = '<p class="calendar-list-empty">No calendars found</p>';
+        return;
+    }
+
+    container.innerHTML = calendars.map(cal => `
+        <label class="calendar-select-item" style="--cal-color: ${cal.color}">
+            <input type="checkbox"
+                   value="${cal.id}"
+                   ${GoogleCalendarState.selectedCalendars.includes(cal.id) ? 'checked' : ''}
+                   class="calendar-checkbox">
+            <span class="calendar-color-dot"></span>
+            <span class="calendar-name">${cal.name}${cal.primary ? ' (Primary)' : ''}</span>
+        </label>
+    `).join('');
+
+    // Add event listeners
+    container.querySelectorAll('.calendar-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', () => {
+            const selected = Array.from(container.querySelectorAll('.calendar-checkbox:checked'))
+                .map(cb => cb.value);
+            GoogleCalendarState.selectedCalendars = selected.length > 0 ? selected : ['primary'];
+            localStorage.setItem('selectedCalendars', JSON.stringify(GoogleCalendarState.selectedCalendars));
+        });
+    });
+}
 
 const GOOGLE_API_SCOPES = 'https://www.googleapis.com/auth/calendar.events';
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
@@ -1968,70 +2032,88 @@ async function syncToGoogleCalendar() {
     }
 }
 
-// Sync events from Google Calendar
+// Sync events from Google Calendar (multiple calendars)
 async function syncFromGoogleCalendar() {
     if (!GoogleCalendarState.isConnected || !GoogleCalendarState.syncFromGoogle) {
         return;
     }
 
-    showToast('Importing from Google Calendar...');
+    showToast('Importing from Google Calendars...');
 
     try {
         const today = new Date();
         const nextMonth = new Date(today);
         nextMonth.setMonth(nextMonth.getMonth() + 1);
 
-        const response = await gapi.client.calendar.events.list({
-            calendarId: 'primary',
-            timeMin: today.toISOString(),
-            timeMax: nextMonth.toISOString(),
-            singleEvents: true,
-            orderBy: 'startTime',
-            maxResults: 100
-        });
+        let totalImported = 0;
+        const calendarsToSync = GoogleCalendarState.selectedCalendars;
 
-        const events = response.result.items || [];
-        let importedCount = 0;
-
-        for (const event of events) {
-            if (!event.start.dateTime) continue; // Skip all-day events
-
-            const startDate = new Date(event.start.dateTime);
-            const endDate = new Date(event.end.dateTime);
-            const dateKey = formatDate(startDate);
-            const duration = (endDate - startDate) / (1000 * 60 * 60); // hours
-            const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
-
-            // Check if already exists
-            const existingTasks = AppState.data.daily[dateKey]?.tasks || [];
-            const alreadyExists = existingTasks.some(t => t.googleEventId === event.id);
-
-            if (!alreadyExists) {
-                if (!AppState.data.daily[dateKey]) {
-                    AppState.data.daily[dateKey] = { tasks: [] };
-                }
-
-                AppState.data.daily[dateKey].tasks.push({
-                    id: Date.now() + Math.random(),
-                    text: event.summary || 'Untitled Event',
-                    completed: false,
-                    duration: Math.round(duration * 10) / 10,
-                    startTime: startTime,
-                    source: 'google',
-                    googleEventId: event.id,
-                    createdAt: new Date().toISOString()
+        // Fetch events from all selected calendars
+        for (const calendarId of calendarsToSync) {
+            try {
+                const response = await gapi.client.calendar.events.list({
+                    calendarId: calendarId,
+                    timeMin: today.toISOString(),
+                    timeMax: nextMonth.toISOString(),
+                    singleEvents: true,
+                    orderBy: 'startTime',
+                    maxResults: 100
                 });
 
-                importedCount++;
+                const events = response.result.items || [];
+
+                // Find calendar info for color
+                const calInfo = GoogleCalendarState.availableCalendars.find(c => c.id === calendarId);
+                const calendarColor = calInfo?.color || '#6366f1';
+                const calendarName = calInfo?.name || 'Calendar';
+
+                for (const event of events) {
+                    if (!event.start.dateTime) continue; // Skip all-day events
+
+                    const startDate = new Date(event.start.dateTime);
+                    const endDate = new Date(event.end.dateTime);
+                    const dateKey = formatDate(startDate);
+                    const duration = (endDate - startDate) / (1000 * 60 * 60); // hours
+                    const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
+
+                    // Check if already exists
+                    const existingTasks = AppState.data.daily[dateKey]?.tasks || [];
+                    const alreadyExists = existingTasks.some(t => t.googleEventId === event.id);
+
+                    if (!alreadyExists) {
+                        if (!AppState.data.daily[dateKey]) {
+                            AppState.data.daily[dateKey] = { tasks: [] };
+                        }
+
+                        AppState.data.daily[dateKey].tasks.push({
+                            id: Date.now() + Math.random(),
+                            text: event.summary || 'Untitled Event',
+                            completed: false,
+                            duration: Math.round(duration * 10) / 10,
+                            startTime: startTime,
+                            source: 'google',
+                            googleEventId: event.id,
+                            googleCalendarId: calendarId,
+                            googleCalendarName: calendarName,
+                            googleCalendarColor: calendarColor,
+                            createdAt: new Date().toISOString()
+                        });
+
+                        totalImported++;
+                    }
+                }
+            } catch (calError) {
+                console.error(`Failed to fetch from calendar ${calendarId}:`, calError);
             }
         }
 
-        if (importedCount > 0) {
+        if (totalImported > 0) {
             saveData();
             renderCalendar();
         }
 
-        showToast(`Imported ${importedCount} event${importedCount !== 1 ? 's' : ''} from Google Calendar`);
+        const calCount = calendarsToSync.length;
+        showToast(`Imported ${totalImported} event${totalImported !== 1 ? 's' : ''} from ${calCount} calendar${calCount !== 1 ? 's' : ''}`);
     } catch (error) {
         console.error('Import error:', error);
         showToast('Import failed. Please try again.');
@@ -2299,8 +2381,24 @@ function initSettings() {
         }
     });
 
+    // Refresh calendar list button
+    const refreshCalendarBtn = document.getElementById('refreshCalendarList');
+    if (refreshCalendarBtn) {
+        refreshCalendarBtn.addEventListener('click', () => {
+            updateCalendarSelectionUI();
+        });
+    }
+
     // Listen for Google connection changes
-    window.addEventListener('googleStatusChanged', updateSettingsStatus);
+    window.addEventListener('googleStatusChanged', () => {
+        updateSettingsStatus();
+        updateCalendarSelectionUI();
+    });
+
+    // Initial calendar list load if connected
+    if (GoogleCalendarState.isConnected) {
+        updateCalendarSelectionUI();
+    }
 }
 
 // ==================== Initialize App ====================
