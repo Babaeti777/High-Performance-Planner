@@ -1828,17 +1828,34 @@ async function initGoogleApi() {
                     return;
                 }
                 GoogleCalendarState.accessToken = response.access_token;
+                // Save token to sessionStorage for persistence
+                sessionStorage.setItem('googleAccessToken', response.access_token);
+                gapi.client.setToken({ access_token: response.access_token });
                 updateGoogleStatus(true);
                 showToast('Connected to Google Calendar!');
+                // Dispatch event for settings page
+                window.dispatchEvent(new Event('googleStatusChanged'));
             },
         });
 
-        // Check if we have a stored token
+        // Check if we have a stored token and verify it
         const storedToken = sessionStorage.getItem('googleAccessToken');
         if (storedToken) {
             gapi.client.setToken({ access_token: storedToken });
             GoogleCalendarState.accessToken = storedToken;
-            updateGoogleStatus(true);
+            // Verify the token is still valid by making a test request
+            try {
+                await gapi.client.calendar.calendarList.list({ maxResults: 1 });
+                updateGoogleStatus(true);
+                window.dispatchEvent(new Event('googleStatusChanged'));
+            } catch (error) {
+                // Token is invalid/expired, clear it
+                console.log('Stored token expired, clearing...');
+                sessionStorage.removeItem('googleAccessToken');
+                gapi.client.setToken(null);
+                GoogleCalendarState.accessToken = null;
+                updateGoogleStatus(false);
+            }
         }
     } catch (error) {
         console.error('Failed to initialize Google API:', error);
