@@ -12,17 +12,21 @@
 <body>
     <div class="app-container">
         <!-- Sidebar Navigation -->
-        <aside class="sidebar">
+        <!-- Mobile Menu Toggle (Outside Sidebar) -->
+        <button class="mobile-menu-toggle" id="mobileMenuToggle">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
                     <span class="logo-icon">📅</span>
                     <span class="logo-text">Planner</span>
                 </div>
-                <button class="hamburger" id="sidebarToggle">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </button>
+                <button class="sidebar-close" id="sidebarClose">×</button>
             </div>
 
             <nav class="sidebar-nav">
@@ -37,6 +41,10 @@
                 <button class="nav-item" data-tab="notes">
                     <span class="nav-icon">📝</span>
                     <span class="nav-text">Notes</span>
+                </button>
+                <button class="nav-item" data-tab="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-text">Settings</span>
                 </button>
             </nav>
 
@@ -292,14 +300,20 @@
                             <h2 class="timer-task-name" id="timerTaskName">Task Name</h2>
                         </div>
 
-                        <div class="countdown-container">
-                            <svg class="countdown-svg" viewBox="0 0 200 200">
-                                <circle class="countdown-bg" cx="100" cy="100" r="90"/>
-                                <circle class="countdown-progress" cx="100" cy="100" r="90" id="countdownProgress"/>
-                            </svg>
-                            <div class="countdown-display">
+                        <div class="timer-progress-container">
+                            <div class="timer-time-display">
                                 <span class="countdown-time" id="countdownDisplay">00:00:00</span>
                                 <span class="countdown-label" id="countdownLabel">remaining</span>
+                            </div>
+                            <div class="timer-progress-bar">
+                                <div class="timer-progress-fill" id="timerProgressFill"></div>
+                            </div>
+                            <div class="timer-progress-markers">
+                                <span>0%</span>
+                                <span>25%</span>
+                                <span>50%</span>
+                                <span>75%</span>
+                                <span>100%</span>
                             </div>
                         </div>
 
@@ -386,6 +400,138 @@
                     <div class="notes-editor">
                         <div id="noteEditor" class="note-editor-area">
                             <p class="empty-state">Select a note or create a new one</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settings" class="tab-content">
+                <div class="page-header">
+                    <h2>⚙️ Settings</h2>
+                    <p class="page-description">Configure your planner preferences and integrations.</p>
+                </div>
+
+                <div class="settings-container">
+                    <!-- Google Calendar Settings -->
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">
+                            <span class="settings-icon">📅</span>
+                            Google Calendar Integration
+                        </h3>
+                        <div class="settings-card">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label>OAuth Client ID</label>
+                                    <p class="setting-description">Your Google Cloud OAuth 2.0 Client ID for calendar sync</p>
+                                </div>
+                                <div class="setting-control">
+                                    <input type="text" id="settingsClientId" class="settings-input" placeholder="Your-Client-ID.apps.googleusercontent.com">
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label>Connection Status</label>
+                                    <p class="setting-description">Current Google Calendar connection status</p>
+                                </div>
+                                <div class="setting-control">
+                                    <div id="settingsGoogleStatus" class="settings-status disconnected">
+                                        <span class="status-indicator"></span>
+                                        <span class="status-label">Not connected</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="setting-actions">
+                                <button id="saveClientId" class="btn btn-primary">Save Client ID</button>
+                                <button id="settingsConnectGoogle" class="btn btn-secondary">Connect Google</button>
+                                <button id="settingsDisconnectGoogle" class="btn btn-danger" style="display: none;">Disconnect</button>
+                            </div>
+                            <div class="settings-help">
+                                <details>
+                                    <summary>How to get a Client ID?</summary>
+                                    <ol>
+                                        <li>Go to <a href="https://console.cloud.google.com" target="_blank">Google Cloud Console</a></li>
+                                        <li>Create a new project or select existing</li>
+                                        <li>Enable the <strong>Google Calendar API</strong></li>
+                                        <li>Go to Credentials → Create OAuth 2.0 Client ID</li>
+                                        <li>Set type to "Web application"</li>
+                                        <li>Add your domain to Authorized JavaScript origins</li>
+                                        <li>Copy the Client ID and paste above</li>
+                                    </ol>
+                                </details>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sync Settings -->
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">
+                            <span class="settings-icon">🔄</span>
+                            Sync Options
+                        </h3>
+                        <div class="settings-card">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label>Auto-sync tasks</label>
+                                    <p class="setting-description">Automatically sync scheduled tasks to Google Calendar</p>
+                                </div>
+                                <div class="setting-control">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="settingsAutoSync" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label>Import from Google</label>
+                                    <p class="setting-description">Import events from Google Calendar as tasks</p>
+                                </div>
+                                <div class="setting-control">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="settingsImportGoogle">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Data Management -->
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">
+                            <span class="settings-icon">💾</span>
+                            Data Management
+                        </h3>
+                        <div class="settings-card">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label>Export Data</label>
+                                    <p class="setting-description">Download all your tasks and notes as JSON</p>
+                                </div>
+                                <div class="setting-control">
+                                    <button id="settingsExport" class="btn btn-secondary">Export</button>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label>Import Data</label>
+                                    <p class="setting-description">Restore from a previously exported file</p>
+                                </div>
+                                <div class="setting-control">
+                                    <button id="settingsImport" class="btn btn-secondary">Import</button>
+                                    <input type="file" id="settingsImportFile" accept=".json" style="display: none;">
+                                </div>
+                            </div>
+                            <div class="setting-item danger">
+                                <div class="setting-info">
+                                    <label>Clear All Data</label>
+                                    <p class="setting-description">Permanently delete all tasks, notes, and settings</p>
+                                </div>
+                                <div class="setting-control">
+                                    <button id="settingsClearData" class="btn btn-danger">Clear All</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

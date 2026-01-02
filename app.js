@@ -1032,7 +1032,7 @@ function startTaskTimer(task, dateKey = null) {
 
     // Reset progress circle
     updateCountdownDisplay();
-    updateProgressCircle();
+    updateProgressBar();
 
     // Show initial quote
     showRandomMotivation();
@@ -1061,7 +1061,7 @@ function resumeCountdown() {
         }
 
         updateCountdownDisplay();
-        updateProgressCircle();
+        updateProgressBar();
     }, 1000);
 }
 
@@ -1085,7 +1085,7 @@ function restartCountdown() {
     document.getElementById('timerModalContent').classList.remove('overtime');
 
     updateCountdownDisplay();
-    updateProgressCircle();
+    updateProgressBar();
     resumeCountdown();
 }
 
@@ -1173,17 +1173,17 @@ function formatTimeDisplay(totalSeconds) {
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-function updateProgressCircle() {
-    const progressCircle = document.getElementById('countdownProgress');
+function updateProgressBar() {
+    const progressFill = document.getElementById('timerProgressFill');
     const totalSeconds = TimerState.originalDuration * 3600;
 
     if (TimerState.remainingSeconds >= 0) {
-        const progress = TimerState.remainingSeconds / totalSeconds;
-        const dashOffset = 565.48 * (1 - progress);
-        progressCircle.style.strokeDashoffset = dashOffset;
+        // Calculate percentage remaining (bar empties as time passes)
+        const percentRemaining = (TimerState.remainingSeconds / totalSeconds) * 100;
+        progressFill.style.width = percentRemaining + '%';
     } else {
-        // Full circle when in overtime
-        progressCircle.style.strokeDashoffset = 0;
+        // Empty bar when in overtime
+        progressFill.style.width = '0%';
     }
 }
 
@@ -1716,11 +1716,47 @@ function initImportExport() {
 
 // ==================== Sidebar Toggle ====================
 function initSidebarToggle() {
-    const sidebarToggle = document.getElementById('sidebarToggle');
-    const sidebar = document.querySelector('.sidebar');
+    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    const sidebarClose = document.getElementById('sidebarClose');
+    const sidebar = document.getElementById('sidebar');
 
-    sidebarToggle.addEventListener('click', () => {
-        sidebar.classList.toggle('collapsed');
+    function openSidebar() {
+        sidebar.classList.add('open');
+        sidebarOverlay.classList.add('active');
+        mobileMenuToggle.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeSidebar() {
+        sidebar.classList.remove('open');
+        sidebarOverlay.classList.remove('active');
+        mobileMenuToggle.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    // Mobile menu toggle button
+    mobileMenuToggle.addEventListener('click', () => {
+        if (sidebar.classList.contains('open')) {
+            closeSidebar();
+        } else {
+            openSidebar();
+        }
+    });
+
+    // Close button inside sidebar
+    sidebarClose.addEventListener('click', closeSidebar);
+
+    // Click on overlay to close
+    sidebarOverlay.addEventListener('click', closeSidebar);
+
+    // Close sidebar when a nav item is clicked (on mobile)
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+            if (window.innerWidth <= 768) {
+                closeSidebar();
+            }
+        });
     });
 }
 
@@ -2078,6 +2114,152 @@ function initGoogleCalendar() {
     }
 }
 
+// ==================== Settings Page ====================
+function initSettings() {
+    const settingsClientId = document.getElementById('settingsClientId');
+    const saveClientIdBtn = document.getElementById('saveClientId');
+    const settingsConnectBtn = document.getElementById('settingsConnectGoogle');
+    const settingsDisconnectBtn = document.getElementById('settingsDisconnectGoogle');
+    const settingsGoogleStatus = document.getElementById('settingsGoogleStatus');
+    const settingsAutoSync = document.getElementById('settingsAutoSync');
+    const settingsImportGoogle = document.getElementById('settingsImportGoogle');
+    const settingsExport = document.getElementById('settingsExport');
+    const settingsImport = document.getElementById('settingsImport');
+    const settingsImportFile = document.getElementById('settingsImportFile');
+    const settingsClearData = document.getElementById('settingsClearData');
+
+    // Load current settings
+    settingsClientId.value = GoogleCalendarState.clientId || '';
+    settingsAutoSync.checked = GoogleCalendarState.syncToGoogle;
+    settingsImportGoogle.checked = GoogleCalendarState.syncFromGoogle;
+
+    // Update status display
+    function updateSettingsStatus() {
+        const statusLabel = settingsGoogleStatus.querySelector('.status-label');
+        if (GoogleCalendarState.isConnected) {
+            settingsGoogleStatus.classList.remove('disconnected');
+            settingsGoogleStatus.classList.add('connected');
+            statusLabel.textContent = 'Connected';
+            settingsConnectBtn.style.display = 'none';
+            settingsDisconnectBtn.style.display = 'inline-flex';
+        } else {
+            settingsGoogleStatus.classList.remove('connected');
+            settingsGoogleStatus.classList.add('disconnected');
+            statusLabel.textContent = 'Not connected';
+            settingsConnectBtn.style.display = 'inline-flex';
+            settingsDisconnectBtn.style.display = 'none';
+        }
+    }
+    updateSettingsStatus();
+
+    // Save Client ID
+    saveClientIdBtn.addEventListener('click', () => {
+        const newClientId = settingsClientId.value.trim();
+        if (newClientId) {
+            GoogleCalendarState.clientId = newClientId;
+            localStorage.setItem('googleClientId', newClientId);
+            showToast('Client ID saved successfully');
+            // Also update the modal input if it exists
+            const modalClientId = document.getElementById('googleClientId');
+            if (modalClientId) {
+                modalClientId.value = newClientId;
+            }
+        } else {
+            showToast('Please enter a valid Client ID');
+        }
+    });
+
+    // Connect Google
+    settingsConnectBtn.addEventListener('click', () => {
+        if (!GoogleCalendarState.clientId) {
+            showToast('Please save a Client ID first');
+            return;
+        }
+        initGoogleAuth();
+        setTimeout(updateSettingsStatus, 1000);
+    });
+
+    // Disconnect Google
+    settingsDisconnectBtn.addEventListener('click', () => {
+        GoogleCalendarState.isConnected = false;
+        GoogleCalendarState.accessToken = null;
+        updateGoogleStatus();
+        updateSettingsStatus();
+        showToast('Disconnected from Google Calendar');
+    });
+
+    // Auto-sync toggle
+    settingsAutoSync.addEventListener('change', () => {
+        GoogleCalendarState.syncToGoogle = settingsAutoSync.checked;
+        localStorage.setItem('syncToGoogle', settingsAutoSync.checked);
+    });
+
+    // Import from Google toggle
+    settingsImportGoogle.addEventListener('change', () => {
+        GoogleCalendarState.syncFromGoogle = settingsImportGoogle.checked;
+        localStorage.setItem('syncFromGoogle', settingsImportGoogle.checked);
+    });
+
+    // Export data
+    settingsExport.addEventListener('click', () => {
+        document.getElementById('exportData').click();
+    });
+
+    // Import data
+    settingsImport.addEventListener('click', () => {
+        settingsImportFile.click();
+    });
+
+    settingsImportFile.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = JSON.parse(event.target.result);
+                if (data.tasks) {
+                    tasks = data.tasks;
+                    localStorage.setItem('plannerTasks', JSON.stringify(tasks));
+                }
+                if (data.notes) {
+                    notes = data.notes;
+                    localStorage.setItem('plannerNotes', JSON.stringify(notes));
+                }
+                renderAllQuadrants();
+                renderCalendar();
+                renderNotes();
+                showToast('Data imported successfully');
+            } catch (error) {
+                showToast('Error importing data');
+            }
+        };
+        reader.readAsText(file);
+        settingsImportFile.value = '';
+    });
+
+    // Clear all data
+    settingsClearData.addEventListener('click', () => {
+        if (confirm('Are you sure you want to delete all your tasks, notes, and settings? This cannot be undone.')) {
+            localStorage.clear();
+            tasks = [];
+            notes = [];
+            renderAllQuadrants();
+            renderCalendar();
+            renderNotes();
+            settingsClientId.value = '';
+            GoogleCalendarState.clientId = '';
+            GoogleCalendarState.isConnected = false;
+            updateGoogleStatus();
+            updateSettingsStatus();
+            showToast('All data cleared');
+        }
+    });
+
+    // Listen for Google connection changes
+    window.addEventListener('googleStatusChanged', updateSettingsStatus);
+}
+
 // ==================== Initialize App ====================
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
@@ -2091,4 +2273,5 @@ document.addEventListener('DOMContentLoaded', () => {
     initImportExport();
     initSidebarToggle();
     initGoogleCalendar();
+    initSettings();
 });
