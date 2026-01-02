@@ -30,7 +30,11 @@
             </div>
 
             <nav class="sidebar-nav">
-                <button class="nav-item active" data-tab="eisenhower">
+                <button class="nav-item active" data-tab="home">
+                    <span class="nav-icon">🏠</span>
+                    <span class="nav-text">Home</span>
+                </button>
+                <button class="nav-item" data-tab="eisenhower">
                     <span class="nav-icon">🎯</span>
                     <span class="nav-text">Prioritize</span>
                 </button>
@@ -76,8 +80,47 @@
         <!-- Main Content Area -->
         <main class="main-content">
 
-            <!-- Eisenhower Matrix Tab (Default - Start Here) -->
-            <div id="eisenhower" class="tab-content active">
+            <!-- Home Tab with Clock and Routines -->
+            <div id="home" class="tab-content active">
+                <div class="home-container">
+                    <div class="routine-clock-wrapper">
+                        <div class="routine-clock" id="routineClock">
+                            <svg class="clock-svg" viewBox="0 0 400 400">
+                                <!-- Clock face background -->
+                                <circle class="clock-face" cx="200" cy="200" r="180"/>
+                                <!-- Routine segments will be inserted here -->
+                                <g id="routineSegments"></g>
+                                <!-- Hour markers -->
+                                <g class="clock-markers" id="clockMarkers"></g>
+                                <!-- Clock center -->
+                                <circle class="clock-center" cx="200" cy="200" r="8"/>
+                                <!-- Clock hands -->
+                                <line class="clock-hand hour-hand" id="hourHand" x1="200" y1="200" x2="200" y2="100"/>
+                                <line class="clock-hand minute-hand" id="minuteHand" x1="200" y1="200" x2="200" y2="60"/>
+                                <circle class="clock-center-dot" cx="200" cy="200" r="4"/>
+                            </svg>
+                            <div class="digital-time" id="digitalTime">00:00:00</div>
+                            <div class="current-date" id="currentDate"></div>
+                        </div>
+                    </div>
+
+                    <div class="routines-panel">
+                        <div class="routines-header">
+                            <h3>Daily Routines</h3>
+                            <button class="btn btn-primary btn-sm" id="addRoutineBtn">+ Add Routine</button>
+                        </div>
+                        <div class="routines-list" id="routinesList">
+                            <!-- Routines will be rendered here -->
+                        </div>
+                        <div class="routine-legend" id="routineLegend">
+                            <!-- Legend will be rendered here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Eisenhower Matrix Tab -->
+            <div id="eisenhower" class="tab-content">
                 <div class="page-header">
                     <div class="page-title">
                         <h2>🎯 Prioritize Your Tasks</h2>
@@ -317,19 +360,97 @@
                             </div>
                         </div>
 
-                        <div class="timer-controls">
-                            <button id="timerPlayPause" class="timer-control-btn play-pause">
-                                <span class="play-icon">▶</span>
-                                <span class="pause-icon hidden">⏸</span>
+                        <div class="timer-controls-new">
+                            <button id="timerRestart" class="timer-btn timer-btn-restart" title="Restart">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                    <path d="M3 3v5h5"/>
+                                </svg>
+                                <span>Restart</span>
                             </button>
-                            <button id="timerRestart" class="timer-control-btn restart" title="Start Over">↻</button>
-                            <button id="timerStop" class="timer-control-btn stop" title="Stop & Save">⏹</button>
+                            <button id="timerPlayPause" class="timer-btn timer-btn-primary">
+                                <span class="play-icon">
+                                    <svg viewBox="0 0 24 24" fill="currentColor">
+                                        <polygon points="5 3 19 12 5 21 5 3"/>
+                                    </svg>
+                                </span>
+                                <span class="pause-icon hidden">
+                                    <svg viewBox="0 0 24 24" fill="currentColor">
+                                        <rect x="6" y="4" width="4" height="16"/>
+                                        <rect x="14" y="4" width="4" height="16"/>
+                                    </svg>
+                                </span>
+                                <span class="btn-label play-label">Start</span>
+                                <span class="btn-label pause-label hidden">Pause</span>
+                            </button>
+                            <button id="timerStop" class="timer-btn timer-btn-stop" title="Stop & Save">
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                    <rect x="4" y="4" width="16" height="16" rx="2"/>
+                                </svg>
+                                <span>Stop</span>
+                            </button>
                         </div>
 
                         <div class="motivation-container">
                             <p class="motivation-quote" id="motivationQuote">"The secret of getting ahead is getting started."</p>
                             <span class="motivation-author" id="motivationAuthor">— Mark Twain</span>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Routine Add/Edit Modal -->
+            <div id="routineModal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 id="routineModalTitle">Add Routine</h3>
+                        <button class="modal-close" id="closeRoutineModal">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label>Routine Name</label>
+                            <input type="text" id="routineName" class="form-input" placeholder="e.g., Morning Exercise">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Start Time</label>
+                                <input type="time" id="routineStartTime" class="form-input" value="09:00">
+                            </div>
+                            <div class="form-group">
+                                <label>Duration (hours)</label>
+                                <input type="number" id="routineDuration" class="form-input" value="1" min="0.25" step="0.25">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Color</label>
+                            <div class="color-picker-grid" id="routineColorPicker">
+                                <button class="color-option selected" data-color="#6366f1" style="background:#6366f1"></button>
+                                <button class="color-option" data-color="#8b5cf6" style="background:#8b5cf6"></button>
+                                <button class="color-option" data-color="#ec4899" style="background:#ec4899"></button>
+                                <button class="color-option" data-color="#ef4444" style="background:#ef4444"></button>
+                                <button class="color-option" data-color="#f59e0b" style="background:#f59e0b"></button>
+                                <button class="color-option" data-color="#10b981" style="background:#10b981"></button>
+                                <button class="color-option" data-color="#06b6d4" style="background:#06b6d4"></button>
+                                <button class="color-option" data-color="#3b82f6" style="background:#3b82f6"></button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Days</label>
+                            <div class="days-picker" id="routineDaysPicker">
+                                <button class="day-option selected" data-day="0">Sun</button>
+                                <button class="day-option selected" data-day="1">Mon</button>
+                                <button class="day-option selected" data-day="2">Tue</button>
+                                <button class="day-option selected" data-day="3">Wed</button>
+                                <button class="day-option selected" data-day="4">Thu</button>
+                                <button class="day-option selected" data-day="5">Fri</button>
+                                <button class="day-option selected" data-day="6">Sat</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" id="cancelRoutineModal">Cancel</button>
+                        <button class="btn btn-danger" id="deleteRoutineBtn" style="display:none">Delete</button>
+                        <button class="btn btn-primary" id="saveRoutineBtn">Save Routine</button>
                     </div>
                 </div>
             </div>

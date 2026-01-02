@@ -2816,3 +2816,399 @@ select:focus {
     font-size: 14px;
     color: var(--text-primary);
 }
+
+/* ==================== Home Page & Routine Clock ==================== */
+.home-container {
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 20px;
+    flex-wrap: wrap;
+}
+
+.routine-clock-wrapper {
+    flex-shrink: 0;
+}
+
+.routine-clock {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.clock-svg {
+    width: 350px;
+    height: 350px;
+    filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.3));
+}
+
+.clock-face {
+    fill: var(--bg-card);
+    stroke: var(--border-color);
+    stroke-width: 2;
+}
+
+.clock-markers text {
+    fill: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.clock-center {
+    fill: var(--bg-secondary);
+    stroke: var(--border-color);
+    stroke-width: 2;
+}
+
+.clock-center-dot {
+    fill: var(--accent-primary);
+}
+
+.clock-hand {
+    stroke-linecap: round;
+    transition: transform 0.3s ease;
+    transform-origin: 200px 200px;
+}
+
+.hour-hand {
+    stroke: var(--text-primary);
+    stroke-width: 4;
+}
+
+.minute-hand {
+    stroke: var(--accent-primary);
+    stroke-width: 3;
+}
+
+.digital-time {
+    font-size: 48px;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+    color: var(--accent-primary);
+    margin-top: 20px;
+    text-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+}
+
+.current-date {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+}
+
+/* Routine segments on clock */
+.routine-segment {
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+    cursor: pointer;
+}
+
+.routine-segment:hover {
+    opacity: 1;
+}
+
+.routine-segment-label {
+    font-size: 9px;
+    fill: white;
+    font-weight: 500;
+    pointer-events: none;
+}
+
+/* Routines Panel */
+.routines-panel {
+    flex: 1;
+    max-width: 400px;
+    min-width: 300px;
+}
+
+.routines-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.routines-header h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.btn-sm {
+    padding: 8px 16px;
+    font-size: 13px;
+}
+
+.routines-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.routine-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.routine-item:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent-primary);
+    transform: translateX(4px);
+}
+
+.routine-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.routine-info {
+    flex: 1;
+}
+
+.routine-name {
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.routine-time {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.routine-duration-badge {
+    background: var(--bg-secondary);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.routine-legend {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.routine-legend-title {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+}
+
+/* Color picker grid */
+.color-picker-grid {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.color-option {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.color-option:hover {
+    transform: scale(1.15);
+}
+
+.color-option.selected {
+    border-color: white;
+    box-shadow: 0 0 0 2px var(--accent-primary);
+}
+
+/* Days picker */
+.days-picker {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.day-option {
+    width: 44px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.day-option:hover {
+    border-color: var(--accent-primary);
+}
+
+.day-option.selected {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+/* ==================== Redesigned Timer Buttons ==================== */
+.timer-controls-new {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    align-items: center;
+}
+
+.timer-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 24px;
+    border-radius: 16px;
+    border: 2px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 90px;
+}
+
+.timer-btn svg {
+    width: 28px;
+    height: 28px;
+}
+
+.timer-btn span {
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.timer-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.timer-btn-primary {
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
+    border-color: var(--accent-primary);
+    color: white;
+    min-width: 120px;
+    padding: 20px 32px;
+}
+
+.timer-btn-primary svg {
+    width: 36px;
+    height: 36px;
+}
+
+.timer-btn-primary:hover {
+    background: linear-gradient(135deg, var(--accent-hover), #4338ca);
+}
+
+.timer-btn-restart {
+    background: var(--bg-card);
+}
+
+.timer-btn-restart:hover {
+    border-color: var(--accent-secondary);
+    color: var(--accent-secondary);
+}
+
+.timer-btn-stop {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: var(--accent-danger);
+    color: var(--accent-danger);
+}
+
+.timer-btn-stop:hover {
+    background: var(--accent-danger);
+    color: white;
+}
+
+.timer-btn .btn-label {
+    font-size: 13px;
+}
+
+.timer-btn .play-label.hidden,
+.timer-btn .pause-label.hidden {
+    display: none;
+}
+
+/* Hide old timer controls */
+.timer-controls {
+    display: none;
+}
+
+/* Fullscreen timer button adjustments */
+.timer-modal.fullscreen .timer-btn {
+    padding: 24px 36px;
+    min-width: 120px;
+}
+
+.timer-modal.fullscreen .timer-btn svg {
+    width: 40px;
+    height: 40px;
+}
+
+.timer-modal.fullscreen .timer-btn-primary {
+    min-width: 160px;
+    padding: 28px 48px;
+}
+
+.timer-modal.fullscreen .timer-btn-primary svg {
+    width: 52px;
+    height: 52px;
+}
+
+@media (max-width: 768px) {
+    .home-container {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .clock-svg {
+        width: 280px;
+        height: 280px;
+    }
+
+    .digital-time {
+        font-size: 36px;
+    }
+
+    .routines-panel {
+        width: 100%;
+        max-width: none;
+    }
+
+    .timer-btn {
+        padding: 12px 16px;
+        min-width: 70px;
+    }
+
+    .timer-btn svg {
+        width: 24px;
+        height: 24px;
+    }
+
+    .timer-btn-primary {
+        min-width: 100px;
+        padding: 16px 24px;
+    }
+}

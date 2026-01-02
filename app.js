@@ -27,6 +27,23 @@ const AppState = {
     }
 };
 
+// Routines state
+const RoutinesState = {
+    routines: JSON.parse(localStorage.getItem('dailyRoutines') || '[]'),
+    editingId: null,
+    clockInterval: null
+};
+
+// Default routines for new users
+const DEFAULT_ROUTINES = [
+    { id: 1, name: 'Morning Routine', startTime: '06:00', duration: 1, color: '#10b981', days: [0,1,2,3,4,5,6] },
+    { id: 2, name: 'Exercise', startTime: '07:00', duration: 1, color: '#f59e0b', days: [1,2,3,4,5] },
+    { id: 3, name: 'Work Block 1', startTime: '09:00', duration: 3, color: '#6366f1', days: [1,2,3,4,5] },
+    { id: 4, name: 'Lunch', startTime: '12:00', duration: 1, color: '#ec4899', days: [0,1,2,3,4,5,6] },
+    { id: 5, name: 'Work Block 2', startTime: '13:00', duration: 4, color: '#6366f1', days: [1,2,3,4,5] },
+    { id: 6, name: 'Evening Routine', startTime: '21:00', duration: 1, color: '#8b5cf6', days: [0,1,2,3,4,5,6] }
+];
+
 // Timer state for countdown timer
 const TimerState = {
     taskName: '',
@@ -1190,13 +1207,19 @@ function updateProgressBar() {
 function updatePlayPauseButton() {
     const playIcon = document.querySelector('#timerPlayPause .play-icon');
     const pauseIcon = document.querySelector('#timerPlayPause .pause-icon');
+    const playLabel = document.querySelector('#timerPlayPause .play-label');
+    const pauseLabel = document.querySelector('#timerPlayPause .pause-label');
 
     if (TimerState.running) {
         playIcon.classList.add('hidden');
         pauseIcon.classList.remove('hidden');
+        if (playLabel) playLabel.classList.add('hidden');
+        if (pauseLabel) pauseLabel.classList.remove('hidden');
     } else {
         playIcon.classList.remove('hidden');
         pauseIcon.classList.add('hidden');
+        if (playLabel) playLabel.classList.remove('hidden');
+        if (pauseLabel) pauseLabel.classList.add('hidden');
     }
 }
 
@@ -2233,6 +2256,343 @@ function initGoogleCalendar() {
     }
 }
 
+// ==================== Home Page & Routines ====================
+function initHomePage() {
+    // Initialize with default routines if none exist
+    if (RoutinesState.routines.length === 0) {
+        RoutinesState.routines = DEFAULT_ROUTINES;
+        saveRoutines();
+    }
+
+    // Start clock
+    updateClock();
+    RoutinesState.clockInterval = setInterval(updateClock, 1000);
+
+    // Render clock markers
+    renderClockMarkers();
+
+    // Render routines
+    renderRoutines();
+    renderRoutineSegments();
+
+    // Add routine button
+    document.getElementById('addRoutineBtn')?.addEventListener('click', () => {
+        openRoutineModal();
+    });
+
+    // Routine modal handlers
+    initRoutineModal();
+}
+
+function updateClock() {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const seconds = now.getSeconds();
+
+    // Update digital time
+    const digitalTime = document.getElementById('digitalTime');
+    if (digitalTime) {
+        digitalTime.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    // Update date
+    const currentDate = document.getElementById('currentDate');
+    if (currentDate) {
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        currentDate.textContent = now.toLocaleDateString('en-US', options);
+    }
+
+    // Update clock hands (12-hour format for display)
+    const hourHand = document.getElementById('hourHand');
+    const minuteHand = document.getElementById('minuteHand');
+
+    if (hourHand && minuteHand) {
+        const hourDeg = ((hours % 12) + minutes / 60) * 30;
+        const minuteDeg = (minutes + seconds / 60) * 6;
+
+        hourHand.style.transform = `rotate(${hourDeg}deg)`;
+        minuteHand.style.transform = `rotate(${minuteDeg}deg)`;
+    }
+}
+
+function renderClockMarkers() {
+    const markersGroup = document.getElementById('clockMarkers');
+    if (!markersGroup) return;
+
+    markersGroup.innerHTML = '';
+
+    // 24-hour markers (every 2 hours to avoid clutter)
+    for (let i = 0; i < 24; i += 2) {
+        const angle = (i / 24) * 360 - 90;
+        const radian = (angle * Math.PI) / 180;
+        const x = 200 + Math.cos(radian) * 160;
+        const y = 200 + Math.sin(radian) * 160;
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', x);
+        text.setAttribute('y', y + 5);
+        text.setAttribute('text-anchor', 'middle');
+        text.textContent = String(i).padStart(2, '0');
+        markersGroup.appendChild(text);
+    }
+}
+
+function renderRoutineSegments() {
+    const segmentsGroup = document.getElementById('routineSegments');
+    if (!segmentsGroup) return;
+
+    segmentsGroup.innerHTML = '';
+
+    const today = new Date().getDay();
+    const todayRoutines = RoutinesState.routines.filter(r => r.days.includes(today));
+
+    todayRoutines.forEach(routine => {
+        const [hours, mins] = routine.startTime.split(':').map(Number);
+        const startMinutes = hours * 60 + mins;
+        const endMinutes = startMinutes + routine.duration * 60;
+
+        // Convert to 24-hour clock angles
+        const startAngle = (startMinutes / (24 * 60)) * 360 - 90;
+        const endAngle = (endMinutes / (24 * 60)) * 360 - 90;
+
+        const path = describeArc(200, 200, 140, startAngle, endAngle);
+
+        const segment = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        segment.setAttribute('d', path);
+        segment.setAttribute('fill', routine.color);
+        segment.setAttribute('class', 'routine-segment');
+        segment.setAttribute('data-id', routine.id);
+
+        segment.addEventListener('click', () => openRoutineModal(routine.id));
+
+        segmentsGroup.appendChild(segment);
+
+        // Add label
+        const midAngle = (startAngle + endAngle) / 2;
+        const labelRadian = (midAngle * Math.PI) / 180;
+        const labelX = 200 + Math.cos(labelRadian) * 120;
+        const labelY = 200 + Math.sin(labelRadian) * 120;
+
+        if (routine.duration >= 0.5) {
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', labelX);
+            label.setAttribute('y', labelY + 3);
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('class', 'routine-segment-label');
+            label.textContent = routine.name.substring(0, 10);
+            segmentsGroup.appendChild(label);
+        }
+    });
+}
+
+function describeArc(x, y, radius, startAngle, endAngle) {
+    const startRadian = (startAngle * Math.PI) / 180;
+    const endRadian = (endAngle * Math.PI) / 180;
+
+    const x1 = x + Math.cos(startRadian) * radius;
+    const y1 = y + Math.sin(startRadian) * radius;
+    const x2 = x + Math.cos(endRadian) * radius;
+    const y2 = y + Math.sin(endRadian) * radius;
+
+    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+
+    return `M ${x} ${y} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+}
+
+function renderRoutines() {
+    const list = document.getElementById('routinesList');
+    if (!list) return;
+
+    const today = new Date().getDay();
+    const sortedRoutines = [...RoutinesState.routines].sort((a, b) => {
+        return a.startTime.localeCompare(b.startTime);
+    });
+
+    if (sortedRoutines.length === 0) {
+        list.innerHTML = '<p class="calendar-list-empty">No routines yet. Add your first routine!</p>';
+        return;
+    }
+
+    list.innerHTML = sortedRoutines.map(routine => {
+        const isToday = routine.days.includes(today);
+        const endTime = calculateEndTime(routine.startTime, routine.duration);
+
+        return `
+            <div class="routine-item ${isToday ? '' : 'opacity-50'}" data-id="${routine.id}">
+                <div class="routine-color" style="background:${routine.color}"></div>
+                <div class="routine-info">
+                    <div class="routine-name">${routine.name}</div>
+                    <div class="routine-time">${routine.startTime} - ${endTime}</div>
+                </div>
+                <span class="routine-duration-badge">${routine.duration}h</span>
+            </div>
+        `;
+    }).join('');
+
+    // Add click handlers
+    list.querySelectorAll('.routine-item').forEach(item => {
+        item.addEventListener('click', () => {
+            openRoutineModal(parseInt(item.dataset.id));
+        });
+    });
+}
+
+function calculateEndTime(startTime, duration) {
+    const [hours, mins] = startTime.split(':').map(Number);
+    const totalMins = hours * 60 + mins + duration * 60;
+    const endHours = Math.floor(totalMins / 60) % 24;
+    const endMins = totalMins % 60;
+    return `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+}
+
+function initRoutineModal() {
+    const modal = document.getElementById('routineModal');
+    const closeBtn = document.getElementById('closeRoutineModal');
+    const cancelBtn = document.getElementById('cancelRoutineModal');
+    const saveBtn = document.getElementById('saveRoutineBtn');
+    const deleteBtn = document.getElementById('deleteRoutineBtn');
+    const colorPicker = document.getElementById('routineColorPicker');
+    const daysPicker = document.getElementById('routineDaysPicker');
+
+    if (!modal) return;
+
+    // Close handlers
+    const closeModal = () => {
+        modal.classList.add('hidden');
+        RoutinesState.editingId = null;
+    };
+
+    closeBtn?.addEventListener('click', closeModal);
+    cancelBtn?.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    // Color picker
+    colorPicker?.querySelectorAll('.color-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            colorPicker.querySelectorAll('.color-option').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        });
+    });
+
+    // Days picker
+    daysPicker?.querySelectorAll('.day-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            btn.classList.toggle('selected');
+        });
+    });
+
+    // Save
+    saveBtn?.addEventListener('click', () => {
+        const name = document.getElementById('routineName').value.trim();
+        const startTime = document.getElementById('routineStartTime').value;
+        const duration = parseFloat(document.getElementById('routineDuration').value);
+        const color = colorPicker.querySelector('.color-option.selected')?.dataset.color || '#6366f1';
+        const days = Array.from(daysPicker.querySelectorAll('.day-option.selected'))
+            .map(btn => parseInt(btn.dataset.day));
+
+        if (!name) {
+            showToast('Please enter a routine name');
+            return;
+        }
+
+        if (days.length === 0) {
+            showToast('Please select at least one day');
+            return;
+        }
+
+        if (RoutinesState.editingId) {
+            // Update existing
+            const idx = RoutinesState.routines.findIndex(r => r.id === RoutinesState.editingId);
+            if (idx !== -1) {
+                RoutinesState.routines[idx] = { id: RoutinesState.editingId, name, startTime, duration, color, days };
+            }
+        } else {
+            // Add new
+            const newId = Date.now();
+            RoutinesState.routines.push({ id: newId, name, startTime, duration, color, days });
+        }
+
+        saveRoutines();
+        renderRoutines();
+        renderRoutineSegments();
+        closeModal();
+        showToast(RoutinesState.editingId ? 'Routine updated' : 'Routine added');
+    });
+
+    // Delete
+    deleteBtn?.addEventListener('click', () => {
+        if (RoutinesState.editingId && confirm('Delete this routine?')) {
+            RoutinesState.routines = RoutinesState.routines.filter(r => r.id !== RoutinesState.editingId);
+            saveRoutines();
+            renderRoutines();
+            renderRoutineSegments();
+            closeModal();
+            showToast('Routine deleted');
+        }
+    });
+}
+
+function openRoutineModal(routineId = null) {
+    const modal = document.getElementById('routineModal');
+    const title = document.getElementById('routineModalTitle');
+    const deleteBtn = document.getElementById('deleteRoutineBtn');
+    const nameInput = document.getElementById('routineName');
+    const startInput = document.getElementById('routineStartTime');
+    const durationInput = document.getElementById('routineDuration');
+    const colorPicker = document.getElementById('routineColorPicker');
+    const daysPicker = document.getElementById('routineDaysPicker');
+
+    RoutinesState.editingId = routineId;
+
+    if (routineId) {
+        // Edit mode
+        const routine = RoutinesState.routines.find(r => r.id === routineId);
+        if (!routine) return;
+
+        title.textContent = 'Edit Routine';
+        deleteBtn.style.display = 'inline-flex';
+        nameInput.value = routine.name;
+        startInput.value = routine.startTime;
+        durationInput.value = routine.duration;
+
+        // Set color
+        colorPicker.querySelectorAll('.color-option').forEach(btn => {
+            btn.classList.toggle('selected', btn.dataset.color === routine.color);
+        });
+
+        // Set days
+        daysPicker.querySelectorAll('.day-option').forEach(btn => {
+            btn.classList.toggle('selected', routine.days.includes(parseInt(btn.dataset.day)));
+        });
+    } else {
+        // Add mode
+        title.textContent = 'Add Routine';
+        deleteBtn.style.display = 'none';
+        nameInput.value = '';
+        startInput.value = '09:00';
+        durationInput.value = '1';
+
+        // Reset color
+        colorPicker.querySelectorAll('.color-option').forEach((btn, i) => {
+            btn.classList.toggle('selected', i === 0);
+        });
+
+        // Reset days (all selected)
+        daysPicker.querySelectorAll('.day-option').forEach(btn => {
+            btn.classList.add('selected');
+        });
+    }
+
+    modal.classList.remove('hidden');
+}
+
+function saveRoutines() {
+    localStorage.setItem('dailyRoutines', JSON.stringify(RoutinesState.routines));
+}
+
 // ==================== Settings Page ====================
 function initSettings() {
     const settingsClientId = document.getElementById('settingsClientId');
@@ -2405,6 +2765,7 @@ function initSettings() {
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
     initTabs();
+    initHomePage();
     initCalendar();
     initDayWeekPopup();
     initTaskModal();
