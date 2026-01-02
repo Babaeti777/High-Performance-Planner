@@ -1824,12 +1824,16 @@ async function initGoogleApi() {
             callback: (response) => {
                 if (response.error) {
                     console.error('Auth error:', response.error);
-                    showToast('Authentication failed');
+                    if (response.error !== 'user_closed_popup') {
+                        showToast('Authentication failed');
+                    }
                     return;
                 }
                 GoogleCalendarState.accessToken = response.access_token;
-                // Save token to sessionStorage for persistence
-                sessionStorage.setItem('googleAccessToken', response.access_token);
+                // Save token to localStorage for persistence across sessions
+                localStorage.setItem('googleAccessToken', response.access_token);
+                localStorage.setItem('googleTokenTime', Date.now().toString());
+                localStorage.setItem('googleAuthorized', 'true');
                 gapi.client.setToken({ access_token: response.access_token });
                 updateGoogleStatus(true);
                 showToast('Connected to Google Calendar!');
@@ -1838,22 +1842,35 @@ async function initGoogleApi() {
             },
         });
 
-        // Check if we have a stored token and verify it
-        const storedToken = sessionStorage.getItem('googleAccessToken');
-        if (storedToken) {
+        // Check if user has previously authorized
+        const wasAuthorized = localStorage.getItem('googleAuthorized') === 'true';
+        const storedToken = localStorage.getItem('googleAccessToken');
+        const tokenTime = parseInt(localStorage.getItem('googleTokenTime') || '0');
+        const tokenAge = Date.now() - tokenTime;
+        const TOKEN_EXPIRY = 55 * 60 * 1000; // 55 minutes (tokens last ~60 min)
+
+        if (storedToken && tokenAge < TOKEN_EXPIRY) {
+            // Token might still be valid, try to use it
             gapi.client.setToken({ access_token: storedToken });
             GoogleCalendarState.accessToken = storedToken;
-            // Verify the token is still valid by making a test request
             try {
                 await gapi.client.calendar.calendarList.list({ maxResults: 1 });
                 updateGoogleStatus(true);
                 window.dispatchEvent(new Event('googleStatusChanged'));
+                return;
             } catch (error) {
-                // Token is invalid/expired, clear it
-                console.log('Stored token expired, clearing...');
-                sessionStorage.removeItem('googleAccessToken');
-                gapi.client.setToken(null);
-                GoogleCalendarState.accessToken = null;
+                console.log('Stored token invalid, will try to refresh...');
+            }
+        }
+
+        // If previously authorized, try silent token refresh
+        if (wasAuthorized && GoogleCalendarState.tokenClient) {
+            console.log('Attempting silent token refresh...');
+            try {
+                // Request new token silently (no prompt)
+                GoogleCalendarState.tokenClient.requestAccessToken({ prompt: '' });
+            } catch (error) {
+                console.log('Silent refresh failed, user needs to reconnect');
                 updateGoogleStatus(false);
             }
         }
@@ -1873,8 +1890,11 @@ function connectGoogleCalendar() {
         // Disconnect
         gapi.client.setToken(null);
         GoogleCalendarState.accessToken = null;
-        sessionStorage.removeItem('googleAccessToken');
+        localStorage.removeItem('googleAccessToken');
+        localStorage.removeItem('googleTokenTime');
+        localStorage.removeItem('googleAuthorized');
         updateGoogleStatus(false);
+        window.dispatchEvent(new Event('googleStatusChanged'));
         showToast('Disconnected from Google Calendar');
         return;
     }
@@ -2198,9 +2218,15 @@ function initSettings() {
 
     // Disconnect Google
     settingsDisconnectBtn.addEventListener('click', () => {
+        if (typeof gapi !== 'undefined') {
+            gapi.client.setToken(null);
+        }
         GoogleCalendarState.isConnected = false;
         GoogleCalendarState.accessToken = null;
-        updateGoogleStatus();
+        localStorage.removeItem('googleAccessToken');
+        localStorage.removeItem('googleTokenTime');
+        localStorage.removeItem('googleAuthorized');
+        updateGoogleStatus(false);
         updateSettingsStatus();
         showToast('Disconnected from Google Calendar');
     });
