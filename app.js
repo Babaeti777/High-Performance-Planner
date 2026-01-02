@@ -1834,7 +1834,7 @@ async function updateCalendarSelectionUI() {
     });
 }
 
-const GOOGLE_API_SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+const GOOGLE_API_SCOPES = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events';
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
 
 // Toast notification helper
