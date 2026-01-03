@@ -2264,33 +2264,29 @@ function initHomePage() {
         saveRoutines();
     }
 
+    // Render clock dots
+    renderClockDots();
+
     // Start clock
     updateClock();
     RoutinesState.clockInterval = setInterval(updateClock, 1000);
 
-    // Render clock markers
-    renderClockMarkers();
+    // Render timeline
+    renderTimelineHours();
+    renderTimeline();
 
-    // Render everything on clock
+    // Render routines chips
+    renderRoutinesQuickView();
     renderRoutines();
-    renderRoutineSegments();
-    renderTaskSegments();
 
-    // Dropdown toggle
-    const dropdownToggle = document.getElementById('routinesDropdownToggle');
-    const dropdownContent = document.getElementById('routinesDropdownContent');
-
-    dropdownToggle?.addEventListener('click', () => {
-        dropdownToggle.classList.toggle('active');
-        dropdownContent.classList.toggle('hidden');
+    // Manage routines button
+    document.getElementById('manageRoutinesBtn')?.addEventListener('click', () => {
+        document.getElementById('routinesPanel')?.classList.remove('hidden');
     });
 
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.routines-dropdown')) {
-            dropdownToggle?.classList.remove('active');
-            dropdownContent?.classList.add('hidden');
-        }
+    // Close routines panel
+    document.getElementById('closeRoutinesPanel')?.addEventListener('click', () => {
+        document.getElementById('routinesPanel')?.classList.add('hidden');
     });
 
     // Add routine button
@@ -2306,18 +2302,17 @@ function updateClock() {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
-    const seconds = now.getSeconds();
 
-    // Update digital time
+    // Update digital time (cleaner format without seconds)
     const digitalTime = document.getElementById('digitalTime');
     if (digitalTime) {
-        digitalTime.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        digitalTime.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
     }
 
     // Update date
     const currentDate = document.getElementById('currentDate');
     if (currentDate) {
-        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        const options = { weekday: 'long', month: 'long', day: 'numeric' };
         currentDate.textContent = now.toLocaleDateString('en-US', options);
     }
 
@@ -2327,145 +2322,239 @@ function updateClock() {
 
     if (hourHand && minuteHand) {
         const hourDeg = ((hours % 12) + minutes / 60) * 30;
-        const minuteDeg = (minutes + seconds / 60) * 6;
+        const minuteDeg = minutes * 6;
 
         hourHand.style.transform = `rotate(${hourDeg}deg)`;
         minuteHand.style.transform = `rotate(${minuteDeg}deg)`;
     }
+
+    // Update now marker on timeline
+    updateNowMarker();
+
+    // Update current activity
+    updateCurrentActivity();
 }
 
-function renderClockMarkers() {
-    const markersGroup = document.getElementById('clockMarkers');
-    if (!markersGroup) return;
+function renderClockDots() {
+    const dotsGroup = document.getElementById('clockDots');
+    if (!dotsGroup) return;
 
-    markersGroup.innerHTML = '';
+    dotsGroup.innerHTML = '';
 
-    // 24-hour markers (every 2 hours to avoid clutter)
-    for (let i = 0; i < 24; i += 2) {
-        const angle = (i / 24) * 360 - 90;
+    // 12 hour dots
+    for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * 360 - 90;
         const radian = (angle * Math.PI) / 180;
-        const x = 200 + Math.cos(radian) * 160;
-        const y = 200 + Math.sin(radian) * 160;
+        const isMajor = i % 3 === 0; // 12, 3, 6, 9 are major
+        const radius = 130;
+        const x = 150 + Math.cos(radian) * radius;
+        const y = 150 + Math.sin(radian) * radius;
 
-        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        text.setAttribute('x', x);
-        text.setAttribute('y', y + 5);
-        text.setAttribute('text-anchor', 'middle');
-        text.textContent = String(i).padStart(2, '0');
-        markersGroup.appendChild(text);
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        dot.setAttribute('cx', x);
+        dot.setAttribute('cy', y);
+        dot.setAttribute('r', isMajor ? 5 : 3);
+        dot.setAttribute('class', `clock-dot ${isMajor ? 'major' : ''}`);
+        dotsGroup.appendChild(dot);
     }
 }
 
-function renderRoutineSegments() {
-    const segmentsGroup = document.getElementById('routineSegments');
-    if (!segmentsGroup) return;
+function renderTimelineHours() {
+    const container = document.getElementById('timelineHours');
+    if (!container) return;
 
-    segmentsGroup.innerHTML = '';
+    container.innerHTML = '';
+
+    // Show hours from 6am to midnight (waking hours)
+    const hours = [6, 9, 12, 15, 18, 21, 24];
+    hours.forEach(h => {
+        const label = document.createElement('span');
+        label.className = 'timeline-hour-label';
+        label.textContent = h === 24 ? '00' : String(h).padStart(2, '0');
+        container.appendChild(label);
+    });
+}
+
+function renderTimeline() {
+    renderTimelineRoutines();
+    renderTimelineTasks();
+    updateNowMarker();
+}
+
+function renderTimelineRoutines() {
+    const container = document.getElementById('timelineRoutines');
+    if (!container) return;
+
+    container.innerHTML = '';
 
     const today = new Date().getDay();
     const todayRoutines = RoutinesState.routines.filter(r => r.days.includes(today));
 
+    // Timeline represents 6:00 to 24:00 (18 hours)
+    const startHour = 6;
+    const endHour = 24;
+    const totalMinutes = (endHour - startHour) * 60;
+
     todayRoutines.forEach(routine => {
         const [hours, mins] = routine.startTime.split(':').map(Number);
-        const startMinutes = hours * 60 + mins;
-        const endMinutes = startMinutes + routine.duration * 60;
+        const routineStart = hours * 60 + mins;
+        const routineEnd = routineStart + routine.duration * 60;
 
-        // Convert to 24-hour clock angles
-        const startAngle = (startMinutes / (24 * 60)) * 360 - 90;
-        const endAngle = (endMinutes / (24 * 60)) * 360 - 90;
+        // Skip if outside timeline range
+        if (routineEnd <= startHour * 60 || routineStart >= endHour * 60) return;
 
-        const path = describeArc(200, 200, 140, startAngle, endAngle);
+        // Calculate position
+        const adjustedStart = Math.max(routineStart - startHour * 60, 0);
+        const adjustedEnd = Math.min(routineEnd - startHour * 60, totalMinutes);
 
-        const segment = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        segment.setAttribute('d', path);
-        segment.setAttribute('fill', routine.color);
-        segment.setAttribute('class', 'routine-segment');
-        segment.setAttribute('data-id', routine.id);
+        const left = (adjustedStart / totalMinutes) * 100;
+        const width = ((adjustedEnd - adjustedStart) / totalMinutes) * 100;
 
-        segment.addEventListener('click', () => openRoutineModal(routine.id));
+        const block = document.createElement('div');
+        block.className = 'timeline-block';
+        block.style.left = `${left}%`;
+        block.style.width = `${width}%`;
+        block.style.background = routine.color;
+        block.innerHTML = `<span class="timeline-block-text">${routine.name}</span>`;
+        block.title = `${routine.name} (${routine.startTime} - ${calculateEndTime(routine.startTime, routine.duration)})`;
+        block.addEventListener('click', () => openRoutineModal(routine.id));
 
-        segmentsGroup.appendChild(segment);
-
-        // Add label
-        const midAngle = (startAngle + endAngle) / 2;
-        const labelRadian = (midAngle * Math.PI) / 180;
-        const labelX = 200 + Math.cos(labelRadian) * 120;
-        const labelY = 200 + Math.sin(labelRadian) * 120;
-
-        if (routine.duration >= 0.5) {
-            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            label.setAttribute('x', labelX);
-            label.setAttribute('y', labelY + 3);
-            label.setAttribute('text-anchor', 'middle');
-            label.setAttribute('class', 'routine-segment-label');
-            label.textContent = routine.name.substring(0, 10);
-            segmentsGroup.appendChild(label);
-        }
+        container.appendChild(block);
     });
 }
 
-function describeArc(x, y, radius, startAngle, endAngle) {
-    const startRadian = (startAngle * Math.PI) / 180;
-    const endRadian = (endAngle * Math.PI) / 180;
+function renderTimelineTasks() {
+    const container = document.getElementById('timelineTasks');
+    if (!container) return;
 
-    const x1 = x + Math.cos(startRadian) * radius;
-    const y1 = y + Math.sin(startRadian) * radius;
-    const x2 = x + Math.cos(endRadian) * radius;
-    const y2 = y + Math.sin(endRadian) * radius;
-
-    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
-
-    return `M ${x} ${y} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
-}
-
-// Render today's scheduled tasks on the clock
-function renderTaskSegments() {
-    const segmentsGroup = document.getElementById('taskSegments');
-    if (!segmentsGroup) return;
-
-    segmentsGroup.innerHTML = '';
+    container.innerHTML = '';
 
     const today = formatDate(new Date());
     const todayTasks = AppState.data.daily[today]?.tasks || [];
+    const scheduledTasks = todayTasks.filter(task => task.startTime && task.duration && !task.completed);
 
-    // Filter tasks that have a start time
-    const scheduledTasks = todayTasks.filter(task => task.startTime && task.duration);
+    const startHour = 6;
+    const endHour = 24;
+    const totalMinutes = (endHour - startHour) * 60;
 
     scheduledTasks.forEach(task => {
         const [hours, mins] = task.startTime.split(':').map(Number);
-        const startMinutes = hours * 60 + mins;
-        const endMinutes = startMinutes + (task.duration || 1) * 60;
+        const taskStart = hours * 60 + mins;
+        const taskEnd = taskStart + (task.duration || 1) * 60;
 
-        // Convert to 24-hour clock angles
-        const startAngle = (startMinutes / (24 * 60)) * 360 - 90;
-        const endAngle = (endMinutes / (24 * 60)) * 360 - 90;
+        if (taskEnd <= startHour * 60 || taskStart >= endHour * 60) return;
 
-        // Use inner radius for tasks (routines use outer)
-        const path = describeArc(200, 200, 100, startAngle, endAngle);
+        const adjustedStart = Math.max(taskStart - startHour * 60, 0);
+        const adjustedEnd = Math.min(taskEnd - startHour * 60, totalMinutes);
 
-        const segment = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        segment.setAttribute('d', path);
-        segment.setAttribute('fill', task.completed ? '#6b7280' : '#10b981');
-        segment.setAttribute('class', 'task-segment');
-        segment.setAttribute('data-id', task.id);
+        const left = (adjustedStart / totalMinutes) * 100;
+        const width = ((adjustedEnd - adjustedStart) / totalMinutes) * 100;
 
-        segmentsGroup.appendChild(segment);
+        const block = document.createElement('div');
+        block.className = 'timeline-block';
+        block.style.left = `${left}%`;
+        block.style.width = `${width}%`;
+        block.style.background = '#10b981';
+        block.innerHTML = `<span class="timeline-block-text">${task.text}</span>`;
+        block.title = `${task.text} (${task.startTime})`;
 
-        // Add label for longer tasks
-        if ((task.duration || 1) >= 0.5) {
-            const midAngle = (startAngle + endAngle) / 2;
-            const labelRadian = (midAngle * Math.PI) / 180;
-            const labelX = 200 + Math.cos(labelRadian) * 75;
-            const labelY = 200 + Math.sin(labelRadian) * 75;
+        container.appendChild(block);
+    });
+}
 
-            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            label.setAttribute('x', labelX);
-            label.setAttribute('y', labelY + 3);
-            label.setAttribute('text-anchor', 'middle');
-            label.setAttribute('class', 'segment-label');
-            label.textContent = task.text.substring(0, 8);
-            segmentsGroup.appendChild(label);
+function updateNowMarker() {
+    const marker = document.getElementById('timelineNowMarker');
+    if (!marker) return;
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const startHour = 6;
+    const endHour = 24;
+    const totalMinutes = (endHour - startHour) * 60;
+
+    if (currentMinutes < startHour * 60 || currentMinutes > endHour * 60) {
+        marker.style.display = 'none';
+        return;
+    }
+
+    const position = ((currentMinutes - startHour * 60) / totalMinutes) * 100;
+    marker.style.display = 'block';
+    marker.style.left = `${position}%`;
+}
+
+function updateCurrentActivity() {
+    const activityName = document.getElementById('currentActivityName');
+    if (!activityName) return;
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const today = new Date().getDay();
+    const todayStr = formatDate(now);
+
+    // Check routines first
+    for (const routine of RoutinesState.routines) {
+        if (!routine.days.includes(today)) continue;
+
+        const [hours, mins] = routine.startTime.split(':').map(Number);
+        const routineStart = hours * 60 + mins;
+        const routineEnd = routineStart + routine.duration * 60;
+
+        if (currentMinutes >= routineStart && currentMinutes < routineEnd) {
+            activityName.textContent = routine.name;
+            activityName.style.color = routine.color;
+            return;
         }
+    }
+
+    // Check tasks
+    const todayTasks = AppState.data.daily[todayStr]?.tasks || [];
+    for (const task of todayTasks) {
+        if (!task.startTime || task.completed) continue;
+
+        const [hours, mins] = task.startTime.split(':').map(Number);
+        const taskStart = hours * 60 + mins;
+        const taskEnd = taskStart + (task.duration || 1) * 60;
+
+        if (currentMinutes >= taskStart && currentMinutes < taskEnd) {
+            activityName.textContent = task.text;
+            activityName.style.color = '#10b981';
+            return;
+        }
+    }
+
+    activityName.textContent = 'Free time';
+    activityName.style.color = 'var(--text-primary)';
+}
+
+function renderRoutinesQuickView() {
+    const container = document.getElementById('routinesQuickView');
+    if (!container) return;
+
+    const today = new Date().getDay();
+    const todayRoutines = RoutinesState.routines.filter(r => r.days.includes(today));
+
+    if (todayRoutines.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = todayRoutines.map(routine => {
+        const endTime = calculateEndTime(routine.startTime, routine.duration);
+        return `
+            <div class="routine-chip" data-id="${routine.id}">
+                <span class="routine-chip-color" style="background:${routine.color}"></span>
+                <span class="routine-chip-name">${routine.name}</span>
+                <span class="routine-chip-time">${routine.startTime}</span>
+            </div>
+        `;
+    }).join('');
+
+    // Add click handlers
+    container.querySelectorAll('.routine-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            openRoutineModal(parseInt(chip.dataset.id));
+        });
     });
 }
 
@@ -2586,7 +2675,8 @@ function initRoutineModal() {
 
         saveRoutines();
         renderRoutines();
-        renderRoutineSegments();
+        renderTimeline();
+        renderRoutinesQuickView();
         closeModal();
         showToast(RoutinesState.editingId ? 'Routine updated' : 'Routine added');
     });
@@ -2597,7 +2687,8 @@ function initRoutineModal() {
             RoutinesState.routines = RoutinesState.routines.filter(r => r.id !== RoutinesState.editingId);
             saveRoutines();
             renderRoutines();
-            renderRoutineSegments();
+            renderTimeline();
+            renderRoutinesQuickView();
             closeModal();
             showToast('Routine deleted');
         }
