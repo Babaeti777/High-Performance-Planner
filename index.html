@@ -80,68 +80,67 @@
         <!-- Main Content Area -->
         <main class="main-content">
 
-            <!-- Home Tab with Clean Clock Design -->
+            <!-- Home Tab - Welcome/Overview -->
             <div id="home" class="tab-content active">
-                <div class="home-clean">
-                    <!-- Main Clock Section -->
-                    <div class="clock-section">
-                        <div class="clock-wrapper">
-                            <svg class="clock-svg-clean" viewBox="0 0 300 300" id="mainClock">
-                                <!-- Clock face -->
-                                <circle class="clock-face-clean" cx="150" cy="150" r="145"/>
-                                <!-- Hour dots -->
-                                <g class="clock-dots" id="clockDots"></g>
-                                <!-- Clock hands -->
-                                <line class="clock-hand-clean hour-hand-clean" id="hourHand" x1="150" y1="150" x2="150" y2="70"/>
-                                <line class="clock-hand-clean minute-hand-clean" id="minuteHand" x1="150" y1="150" x2="150" y2="45"/>
-                                <circle class="clock-center-clean" cx="150" cy="150" r="8"/>
-                            </svg>
-                        </div>
+                <div class="home-welcome">
+                    <div class="welcome-header">
+                        <h1 id="greetingText">Good Morning! 👋</h1>
+                        <p class="welcome-date" id="welcomeDate"></p>
+                    </div>
 
-                        <div class="time-display">
-                            <div class="digital-time-main" id="digitalTime">00:00</div>
-                            <div class="current-date-main" id="currentDate"></div>
+                    <div class="quick-stats">
+                        <div class="stat-card-home">
+                            <span class="stat-icon">📋</span>
+                            <div class="stat-info">
+                                <span class="stat-number" id="todayTaskCount">0</span>
+                                <span class="stat-label">Tasks Today</span>
+                            </div>
+                        </div>
+                        <div class="stat-card-home">
+                            <span class="stat-icon">✅</span>
+                            <div class="stat-info">
+                                <span class="stat-number" id="completedTaskCount">0</span>
+                                <span class="stat-label">Completed</span>
+                            </div>
+                        </div>
+                        <div class="stat-card-home">
+                            <span class="stat-icon">🎯</span>
+                            <div class="stat-info">
+                                <span class="stat-number" id="urgentTaskCount">0</span>
+                                <span class="stat-label">Urgent</span>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Day Schedule Timeline -->
-                    <div class="schedule-section">
-                        <div class="schedule-header">
-                            <h3>Today's Schedule</h3>
-                            <div class="schedule-actions">
-                                <button class="btn btn-secondary btn-sm" id="manageRoutinesBtn">
-                                    <span>⚙️</span> Manage Routines
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="timeline-container">
-                            <div class="timeline-hours" id="timelineHours"></div>
-                            <div class="timeline-track">
-                                <div class="timeline-routines" id="timelineRoutines"></div>
-                                <div class="timeline-tasks" id="timelineTasks"></div>
-                                <div class="timeline-now-marker" id="timelineNowMarker"></div>
-                            </div>
-                        </div>
-
-                        <div class="current-activity" id="currentActivity">
-                            <span class="activity-label">Now:</span>
-                            <span class="activity-name" id="currentActivityName">Free time</span>
+                    <div class="upcoming-section">
+                        <h3>⏰ Coming Up Next</h3>
+                        <div class="upcoming-list" id="upcomingList">
+                            <!-- Populated dynamically -->
                         </div>
                     </div>
 
-                    <!-- Routines Quick View -->
-                    <div class="routines-quick-view" id="routinesQuickView">
-                        <!-- Populated dynamically -->
+                    <div class="quick-actions">
+                        <button class="quick-action-btn" data-tab="eisenhower">
+                            <span>🎯</span>
+                            <span>Add Tasks</span>
+                        </button>
+                        <button class="quick-action-btn" data-tab="calendar">
+                            <span>📆</span>
+                            <span>View Calendar</span>
+                        </button>
+                        <button class="quick-action-btn" id="quickAddRoutine">
+                            <span>⚙️</span>
+                            <span>Manage Routines</span>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Routines Management Modal Trigger (hidden, accessed via button) -->
+                <!-- Routines Management Panel -->
                 <div class="routines-modal-panel hidden" id="routinesPanel">
                     <div class="routines-panel-content">
                         <div class="routines-panel-header">
-                            <h3>Daily Routines</h3>
-                            <button class="btn btn-primary btn-sm" id="addRoutineBtn">+ Add Routine</button>
+                            <h3>📋 Daily Routines</h3>
+                            <button class="btn btn-primary btn-sm" id="addRoutineBtn">+ Add</button>
                             <button class="close-panel-btn" id="closeRoutinesPanel">×</button>
                         </div>
                         <div class="routines-list-full" id="routinesList">
@@ -439,9 +438,35 @@
                         <button class="modal-close" id="closeRoutineModal">×</button>
                     </div>
                     <div class="modal-body">
-                        <div class="form-group">
-                            <label>Routine Name</label>
-                            <input type="text" id="routineName" class="form-input" placeholder="e.g., Morning Exercise">
+                        <div class="form-row">
+                            <div class="form-group" style="flex:0 0 80px;">
+                                <label>Icon</label>
+                                <div class="emoji-picker-mini" id="routineEmojiPicker">
+                                    <button class="emoji-selected" id="selectedEmoji">🏃</button>
+                                    <div class="emoji-dropdown hidden" id="emojiDropdown">
+                                        <button data-emoji="🏃">🏃</button>
+                                        <button data-emoji="🧘">🧘</button>
+                                        <button data-emoji="💪">💪</button>
+                                        <button data-emoji="🍳">🍳</button>
+                                        <button data-emoji="☕">☕</button>
+                                        <button data-emoji="📚">📚</button>
+                                        <button data-emoji="💼">💼</button>
+                                        <button data-emoji="🎯">🎯</button>
+                                        <button data-emoji="✍️">✍️</button>
+                                        <button data-emoji="🧹">🧹</button>
+                                        <button data-emoji="🛁">🛁</button>
+                                        <button data-emoji="😴">😴</button>
+                                        <button data-emoji="🍽️">🍽️</button>
+                                        <button data-emoji="🚶">🚶</button>
+                                        <button data-emoji="🧠">🧠</button>
+                                        <button data-emoji="💻">💻</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label>Routine Name</label>
+                                <input type="text" id="routineName" class="form-input" placeholder="e.g., Morning Exercise">
+                            </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
@@ -714,6 +739,58 @@
             </button>
 
         </main>
+
+        <!-- Right Schedule Sidebar (Persistent) -->
+        <aside class="schedule-sidebar" id="scheduleSidebar">
+            <!-- Mobile Toggle Button -->
+            <button class="schedule-toggle-btn" id="scheduleToggleBtn">
+                <span>📅</span>
+            </button>
+
+            <div class="schedule-sidebar-content">
+                <!-- Mini Clock -->
+                <div class="mini-clock-section">
+                    <svg class="mini-clock-svg" viewBox="0 0 100 100" id="miniClock">
+                        <circle class="mini-clock-face" cx="50" cy="50" r="48"/>
+                        <g class="mini-clock-dots" id="miniClockDots"></g>
+                        <line class="mini-clock-hand mini-hour-hand" id="miniHourHand" x1="50" y1="50" x2="50" y2="25"/>
+                        <line class="mini-clock-hand mini-minute-hand" id="miniMinuteHand" x1="50" y1="50" x2="50" y2="18"/>
+                        <circle class="mini-clock-center" cx="50" cy="50" r="3"/>
+                    </svg>
+                    <div class="mini-time-display">
+                        <span class="mini-digital-time" id="miniDigitalTime">00:00</span>
+                        <span class="mini-date" id="miniDate">Today</span>
+                    </div>
+                </div>
+
+                <!-- Current Activity -->
+                <div class="current-activity-mini" id="currentActivityMini">
+                    <span class="activity-now-label">Now</span>
+                    <span class="activity-now-name" id="currentActivityMiniName">Free time</span>
+                </div>
+
+                <!-- Vertical Timeline (6 hours) -->
+                <div class="vertical-timeline" id="verticalTimeline">
+                    <div class="timeline-header-bar">
+                        <span>Schedule</span>
+                    </div>
+                    <div class="vertical-timeline-scroll" id="verticalTimelineScroll">
+                        <!-- Timeline hours and blocks rendered by JS -->
+                    </div>
+                </div>
+
+                <!-- Quick Routine List -->
+                <div class="sidebar-routines">
+                    <div class="sidebar-routines-header">
+                        <span>Today's Routines</span>
+                        <button class="btn-icon" id="sidebarManageRoutines" title="Manage">⚙️</button>
+                    </div>
+                    <div class="sidebar-routines-list" id="sidebarRoutinesList">
+                        <!-- Routines rendered here -->
+                    </div>
+                </div>
+            </div>
+        </aside>
     </div>
 
     <script src="app.js"></script>

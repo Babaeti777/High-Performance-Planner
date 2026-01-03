@@ -34,14 +34,14 @@ const RoutinesState = {
     clockInterval: null
 };
 
-// Default routines for new users
+// Default routines for new users (with emojis)
 const DEFAULT_ROUTINES = [
-    { id: 1, name: 'Morning Routine', startTime: '06:00', duration: 1, color: '#10b981', days: [0,1,2,3,4,5,6] },
-    { id: 2, name: 'Exercise', startTime: '07:00', duration: 1, color: '#f59e0b', days: [1,2,3,4,5] },
-    { id: 3, name: 'Work Block 1', startTime: '09:00', duration: 3, color: '#6366f1', days: [1,2,3,4,5] },
-    { id: 4, name: 'Lunch', startTime: '12:00', duration: 1, color: '#ec4899', days: [0,1,2,3,4,5,6] },
-    { id: 5, name: 'Work Block 2', startTime: '13:00', duration: 4, color: '#6366f1', days: [1,2,3,4,5] },
-    { id: 6, name: 'Evening Routine', startTime: '21:00', duration: 1, color: '#8b5cf6', days: [0,1,2,3,4,5,6] }
+    { id: 1, name: 'Morning Routine', emoji: '🌅', startTime: '06:00', duration: 1, color: '#10b981', days: [0,1,2,3,4,5,6] },
+    { id: 2, name: 'Exercise', emoji: '💪', startTime: '07:00', duration: 1, color: '#f59e0b', days: [1,2,3,4,5] },
+    { id: 3, name: 'Work Block 1', emoji: '💼', startTime: '09:00', duration: 3, color: '#6366f1', days: [1,2,3,4,5] },
+    { id: 4, name: 'Lunch', emoji: '🍽️', startTime: '12:00', duration: 1, color: '#ec4899', days: [0,1,2,3,4,5,6] },
+    { id: 5, name: 'Work Block 2', emoji: '💻', startTime: '13:00', duration: 4, color: '#6366f1', days: [1,2,3,4,5] },
+    { id: 6, name: 'Evening Routine', emoji: '🌙', startTime: '21:00', duration: 1, color: '#8b5cf6', days: [0,1,2,3,4,5,6] }
 ];
 
 // Timer state for countdown timer
@@ -2264,23 +2264,38 @@ function initHomePage() {
         saveRoutines();
     }
 
-    // Render clock dots
-    renderClockDots();
+    // Initialize right sidebar
+    initScheduleSidebar();
+
+    // Update home page greeting and stats
+    updateHomeGreeting();
+    updateHomeStats();
+    renderUpcomingItems();
 
     // Start clock
     updateClock();
     RoutinesState.clockInterval = setInterval(updateClock, 1000);
 
-    // Render timeline
-    renderTimelineHours();
-    renderTimeline();
-
-    // Render routines chips
-    renderRoutinesQuickView();
+    // Render routines list
     renderRoutines();
+    renderSidebarRoutines();
 
-    // Manage routines button
-    document.getElementById('manageRoutinesBtn')?.addEventListener('click', () => {
+    // Home page quick action buttons
+    document.querySelectorAll('.quick-action-btn[data-tab]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.querySelector(`[data-tab="${tab}"]`)?.classList.add('active');
+            showTab(tab);
+        });
+    });
+
+    document.getElementById('quickAddRoutine')?.addEventListener('click', () => {
+        document.getElementById('routinesPanel')?.classList.remove('hidden');
+    });
+
+    // Manage routines buttons (multiple locations)
+    document.getElementById('sidebarManageRoutines')?.addEventListener('click', () => {
         document.getElementById('routinesPanel')?.classList.remove('hidden');
     });
 
@@ -2296,6 +2311,327 @@ function initHomePage() {
 
     // Routine modal handlers
     initRoutineModal();
+
+    // Emoji picker
+    initEmojiPicker();
+}
+
+// Initialize schedule sidebar
+function initScheduleSidebar() {
+    // Render mini clock dots
+    renderMiniClockDots();
+
+    // Render vertical timeline
+    renderVerticalTimeline();
+
+    // Sidebar toggle for mobile
+    const toggleBtn = document.getElementById('scheduleToggleBtn');
+    const sidebar = document.getElementById('scheduleSidebar');
+
+    toggleBtn?.addEventListener('click', () => {
+        sidebar?.classList.toggle('open');
+    });
+
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', (e) => {
+        if (window.innerWidth <= 1024) {
+            if (!e.target.closest('.schedule-sidebar') && !e.target.closest('.schedule-toggle-btn')) {
+                sidebar?.classList.remove('open');
+            }
+        }
+    });
+}
+
+function renderMiniClockDots() {
+    const dotsGroup = document.getElementById('miniClockDots');
+    if (!dotsGroup) return;
+
+    dotsGroup.innerHTML = '';
+
+    // 12 hour dots
+    for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * 360 - 90;
+        const radian = (angle * Math.PI) / 180;
+        const radius = 42;
+        const x = 50 + Math.cos(radian) * radius;
+        const y = 50 + Math.sin(radian) * radius;
+
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        dot.setAttribute('cx', x);
+        dot.setAttribute('cy', y);
+        dot.setAttribute('r', i % 3 === 0 ? 2 : 1);
+        dot.setAttribute('class', 'mini-clock-dot');
+        dotsGroup.appendChild(dot);
+    }
+}
+
+function renderVerticalTimeline() {
+    const container = document.getElementById('verticalTimelineScroll');
+    if (!container) return;
+
+    const now = new Date();
+    const currentHour = now.getHours();
+
+    // Show 1 hour before and 5 hours after current time (6 hours total)
+    const startHour = Math.max(0, currentHour - 1);
+    const endHour = Math.min(24, currentHour + 5);
+
+    const today = new Date().getDay();
+    const todayStr = formatDate(now);
+    const todayRoutines = RoutinesState.routines.filter(r => r.days.includes(today));
+    const todayTasks = AppState.data.daily[todayStr]?.tasks || [];
+    const scheduledTasks = todayTasks.filter(task => task.startTime && !task.completed);
+
+    container.innerHTML = '';
+
+    for (let hour = startHour; hour < endHour; hour++) {
+        const hourDiv = document.createElement('div');
+        hourDiv.className = `v-timeline-hour ${hour === currentHour ? 'current-hour' : ''}`;
+
+        const hourLabel = document.createElement('div');
+        hourLabel.className = 'v-hour-label';
+        hourLabel.textContent = `${String(hour).padStart(2, '0')}:00`;
+
+        const hourContent = document.createElement('div');
+        hourContent.className = 'v-hour-content';
+
+        // Add routines that fall within this hour
+        todayRoutines.forEach(routine => {
+            const [rHour] = routine.startTime.split(':').map(Number);
+            const rEndHour = rHour + routine.duration;
+            if (hour >= rHour && hour < rEndHour) {
+                const block = document.createElement('div');
+                block.className = 'v-timeline-block';
+                block.style.background = routine.color;
+                block.innerHTML = `
+                    <span class="block-emoji">${routine.emoji || '📌'}</span>
+                    <span class="block-name">${routine.name}</span>
+                `;
+                block.addEventListener('click', () => openRoutineModal(routine.id));
+                hourContent.appendChild(block);
+            }
+        });
+
+        // Add tasks that fall within this hour
+        scheduledTasks.forEach(task => {
+            const [tHour] = task.startTime.split(':').map(Number);
+            const tEndHour = tHour + (task.duration || 1);
+            if (hour >= tHour && hour < tEndHour) {
+                const block = document.createElement('div');
+                block.className = 'v-timeline-block';
+                block.style.background = '#10b981';
+                block.innerHTML = `
+                    <span class="block-emoji">📋</span>
+                    <span class="block-name">${task.text}</span>
+                `;
+                hourContent.appendChild(block);
+            }
+        });
+
+        // Add now marker in current hour
+        if (hour === currentHour) {
+            const minutes = now.getMinutes();
+            const markerPosition = (minutes / 60) * 100;
+            const nowLine = document.createElement('div');
+            nowLine.className = 'v-now-line';
+            nowLine.style.top = `${markerPosition}%`;
+            hourContent.appendChild(nowLine);
+        }
+
+        hourDiv.appendChild(hourLabel);
+        hourDiv.appendChild(hourContent);
+        container.appendChild(hourDiv);
+    }
+
+    // Auto-scroll to current hour
+    const currentHourEl = container.querySelector('.current-hour');
+    if (currentHourEl) {
+        currentHourEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+function renderSidebarRoutines() {
+    const list = document.getElementById('sidebarRoutinesList');
+    if (!list) return;
+
+    const today = new Date().getDay();
+    const todayRoutines = RoutinesState.routines
+        .filter(r => r.days.includes(today))
+        .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+    if (todayRoutines.length === 0) {
+        list.innerHTML = '<p style="padding:12px;color:var(--text-muted);font-size:12px;text-align:center;">No routines for today</p>';
+        return;
+    }
+
+    list.innerHTML = todayRoutines.map(routine => `
+        <div class="sidebar-routine-item" data-id="${routine.id}">
+            <span class="routine-emoji">${routine.emoji || '📌'}</span>
+            <div class="routine-info-mini">
+                <div class="routine-name-mini">${routine.name}</div>
+                <div class="routine-time-mini">${routine.startTime} - ${calculateEndTime(routine.startTime, routine.duration)}</div>
+            </div>
+        </div>
+    `).join('');
+
+    list.querySelectorAll('.sidebar-routine-item').forEach(item => {
+        item.addEventListener('click', () => {
+            openRoutineModal(parseInt(item.dataset.id));
+        });
+    });
+}
+
+function updateHomeGreeting() {
+    const greetingEl = document.getElementById('greetingText');
+    const dateEl = document.getElementById('welcomeDate');
+
+    if (!greetingEl) return;
+
+    const hour = new Date().getHours();
+    let greeting = 'Hello';
+
+    if (hour >= 5 && hour < 12) {
+        greeting = 'Good Morning';
+    } else if (hour >= 12 && hour < 17) {
+        greeting = 'Good Afternoon';
+    } else if (hour >= 17 && hour < 21) {
+        greeting = 'Good Evening';
+    } else {
+        greeting = 'Good Night';
+    }
+
+    greetingEl.textContent = `${greeting}! 👋`;
+
+    if (dateEl) {
+        const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
+        dateEl.textContent = new Date().toLocaleDateString('en-US', options);
+    }
+}
+
+function updateHomeStats() {
+    const today = formatDate(new Date());
+    const todayTasks = AppState.data.daily[today]?.tasks || [];
+
+    document.getElementById('todayTaskCount').textContent = todayTasks.length;
+    document.getElementById('completedTaskCount').textContent = todayTasks.filter(t => t.completed).length;
+
+    // Count urgent tasks
+    let urgentCount = 0;
+    Object.values(AppState.data.eisenhower).forEach(quadrant => {
+        quadrant.forEach(task => {
+            if (task.scheduledDate === today && !task.completed) {
+                urgentCount++;
+            }
+        });
+    });
+    document.getElementById('urgentTaskCount').textContent = urgentCount;
+}
+
+function renderUpcomingItems() {
+    const list = document.getElementById('upcomingList');
+    if (!list) return;
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const today = now.getDay();
+    const todayStr = formatDate(now);
+
+    const upcoming = [];
+
+    // Add routines
+    RoutinesState.routines.forEach(routine => {
+        if (!routine.days.includes(today)) return;
+        const [h, m] = routine.startTime.split(':').map(Number);
+        const startMinutes = h * 60 + m;
+        if (startMinutes > currentMinutes) {
+            upcoming.push({
+                time: routine.startTime,
+                name: `${routine.emoji || ''} ${routine.name}`,
+                type: 'Routine',
+                minutes: startMinutes,
+                color: routine.color
+            });
+        }
+    });
+
+    // Add tasks
+    const todayTasks = AppState.data.daily[todayStr]?.tasks || [];
+    todayTasks.forEach(task => {
+        if (!task.startTime || task.completed) return;
+        const [h, m] = task.startTime.split(':').map(Number);
+        const startMinutes = h * 60 + m;
+        if (startMinutes > currentMinutes) {
+            upcoming.push({
+                time: task.startTime,
+                name: task.text,
+                type: 'Task',
+                minutes: startMinutes,
+                color: '#10b981'
+            });
+        }
+    });
+
+    // Sort by time and take first 4
+    upcoming.sort((a, b) => a.minutes - b.minutes);
+    const next4 = upcoming.slice(0, 4);
+
+    if (next4.length === 0) {
+        list.innerHTML = '<div class="upcoming-empty">No upcoming items today 🎉</div>';
+        return;
+    }
+
+    list.innerHTML = next4.map(item => `
+        <div class="upcoming-item" style="border-left-color:${item.color}">
+            <span class="upcoming-time">${item.time}</span>
+            <span class="upcoming-name">${item.name}</span>
+            <span class="upcoming-type">${item.type}</span>
+        </div>
+    `).join('');
+}
+
+function initEmojiPicker() {
+    const selectedBtn = document.getElementById('selectedEmoji');
+    const dropdown = document.getElementById('emojiDropdown');
+
+    if (!selectedBtn || !dropdown) return;
+
+    selectedBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('hidden');
+    });
+
+    dropdown.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            selectedBtn.textContent = btn.dataset.emoji;
+            dropdown.classList.add('hidden');
+        });
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.emoji-picker-mini')) {
+            dropdown.classList.add('hidden');
+        }
+    });
+}
+
+// Helper to get the current routine based on time
+function getCurrentRoutine() {
+    const now = new Date();
+    const currentDay = now.getDay();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    for (const routine of RoutinesState.routines) {
+        if (!routine.days.includes(currentDay)) continue;
+
+        const [startH, startM] = routine.startTime.split(':').map(Number);
+        const startMinutes = startH * 60 + startM;
+        const endMinutes = startMinutes + routine.duration * 60;
+
+        if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
+            return routine;
+        }
+    }
+    return null;
 }
 
 function updateClock() {
@@ -2303,29 +2639,45 @@ function updateClock() {
     const hours = now.getHours();
     const minutes = now.getMinutes();
 
-    // Update digital time (cleaner format without seconds)
-    const digitalTime = document.getElementById('digitalTime');
-    if (digitalTime) {
-        digitalTime.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    // Update mini digital time in sidebar
+    const miniDigitalTime = document.getElementById('miniDigitalTime');
+    if (miniDigitalTime) {
+        miniDigitalTime.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
     }
 
-    // Update date
-    const currentDate = document.getElementById('currentDate');
-    if (currentDate) {
-        const options = { weekday: 'long', month: 'long', day: 'numeric' };
-        currentDate.textContent = now.toLocaleDateString('en-US', options);
+    // Update mini date in sidebar
+    const miniDate = document.getElementById('miniDate');
+    if (miniDate) {
+        const options = { weekday: 'short', month: 'short', day: 'numeric' };
+        miniDate.textContent = now.toLocaleDateString('en-US', options);
     }
 
-    // Update clock hands (12-hour format for display)
-    const hourHand = document.getElementById('hourHand');
-    const minuteHand = document.getElementById('minuteHand');
+    // Update mini clock hands (SVG line elements)
+    const miniHourHand = document.getElementById('miniHourHand');
+    const miniMinuteHand = document.getElementById('miniMinuteHand');
 
-    if (hourHand && minuteHand) {
-        const hourDeg = ((hours % 12) + minutes / 60) * 30;
-        const minuteDeg = minutes * 6;
+    if (miniHourHand && miniMinuteHand) {
+        const hourAngle = ((hours % 12) + minutes / 60) * 30 - 90;
+        const minuteAngle = minutes * 6 - 90;
 
-        hourHand.style.transform = `rotate(${hourDeg}deg)`;
-        minuteHand.style.transform = `rotate(${minuteDeg}deg)`;
+        // Calculate hand endpoints (from center at 50,50)
+        const hourRad = (hourAngle * Math.PI) / 180;
+        const minuteRad = (minuteAngle * Math.PI) / 180;
+
+        const hourLen = 22;
+        const minuteLen = 30;
+
+        miniHourHand.setAttribute('x2', 50 + Math.cos(hourRad) * hourLen);
+        miniHourHand.setAttribute('y2', 50 + Math.sin(hourRad) * hourLen);
+        miniMinuteHand.setAttribute('x2', 50 + Math.cos(minuteRad) * minuteLen);
+        miniMinuteHand.setAttribute('y2', 50 + Math.sin(minuteRad) * minuteLen);
+    }
+
+    // Update current activity in sidebar
+    const activityName = document.getElementById('currentActivityMiniName');
+    if (activityName) {
+        const currentRoutine = getCurrentRoutine();
+        activityName.textContent = currentRoutine ? `${currentRoutine.emoji || ''} ${currentRoutine.name}` : 'Free time';
     }
 
     // Update now marker on timeline
@@ -2333,6 +2685,14 @@ function updateClock() {
 
     // Update current activity
     updateCurrentActivity();
+
+    // Re-render vertical timeline every minute to keep it current
+    if (typeof renderVerticalTimeline === 'function') {
+        renderVerticalTimeline();
+    }
+    if (typeof renderSidebarRoutines === 'function') {
+        renderSidebarRoutines();
+    }
 }
 
 function renderClockDots() {
@@ -2648,6 +3008,7 @@ function initRoutineModal() {
         const startTime = document.getElementById('routineStartTime').value;
         const duration = parseFloat(document.getElementById('routineDuration').value);
         const color = colorPicker.querySelector('.color-option.selected')?.dataset.color || '#6366f1';
+        const emoji = document.getElementById('selectedEmoji')?.textContent || '🏃';
         const days = Array.from(daysPicker.querySelectorAll('.day-option.selected'))
             .map(btn => parseInt(btn.dataset.day));
 
@@ -2665,18 +3026,19 @@ function initRoutineModal() {
             // Update existing
             const idx = RoutinesState.routines.findIndex(r => r.id === RoutinesState.editingId);
             if (idx !== -1) {
-                RoutinesState.routines[idx] = { id: RoutinesState.editingId, name, startTime, duration, color, days };
+                RoutinesState.routines[idx] = { id: RoutinesState.editingId, name, emoji, startTime, duration, color, days };
             }
         } else {
             // Add new
             const newId = Date.now();
-            RoutinesState.routines.push({ id: newId, name, startTime, duration, color, days });
+            RoutinesState.routines.push({ id: newId, name, emoji, startTime, duration, color, days });
         }
 
         saveRoutines();
         renderRoutines();
         renderTimeline();
         renderRoutinesQuickView();
+        renderSidebarRoutines();
         closeModal();
         showToast(RoutinesState.editingId ? 'Routine updated' : 'Routine added');
     });
@@ -2704,6 +3066,7 @@ function openRoutineModal(routineId = null) {
     const durationInput = document.getElementById('routineDuration');
     const colorPicker = document.getElementById('routineColorPicker');
     const daysPicker = document.getElementById('routineDaysPicker');
+    const emojiBtn = document.getElementById('selectedEmoji');
 
     RoutinesState.editingId = routineId;
 
@@ -2717,6 +3080,11 @@ function openRoutineModal(routineId = null) {
         nameInput.value = routine.name;
         startInput.value = routine.startTime;
         durationInput.value = routine.duration;
+
+        // Set emoji
+        if (emojiBtn) {
+            emojiBtn.textContent = routine.emoji || '🏃';
+        }
 
         // Set color
         colorPicker.querySelectorAll('.color-option').forEach(btn => {
@@ -2734,6 +3102,11 @@ function openRoutineModal(routineId = null) {
         nameInput.value = '';
         startInput.value = '09:00';
         durationInput.value = '1';
+
+        // Reset emoji
+        if (emojiBtn) {
+            emojiBtn.textContent = '🏃';
+        }
 
         // Reset color
         colorPicker.querySelectorAll('.color-option').forEach((btn, i) => {
