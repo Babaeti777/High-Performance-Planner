@@ -136,11 +136,13 @@ body {
     background: rgba(0, 0, 0, 0.6);
     z-index: 90;
     opacity: 0;
+    pointer-events: none;
     transition: opacity 0.3s ease;
 }
 
 .sidebar-overlay.active {
     opacity: 1;
+    pointer-events: auto;
 }
 
 /* Sidebar Close Button */
@@ -3742,16 +3744,20 @@ select:focus {
     /* Hide right sidebar on tablet, show toggle button */
     .schedule-sidebar {
         transform: translateX(100%);
+        pointer-events: none;
     }
 
     .schedule-sidebar.open {
         transform: translateX(0);
+        pointer-events: auto;
     }
 
+    /* Toggle button should always be clickable */
     .schedule-toggle-btn {
         display: flex;
         align-items: center;
         justify-content: center;
+        pointer-events: auto;
     }
 
     .main-content {
@@ -3766,6 +3772,7 @@ select:focus {
 
     .routines-modal-panel.hidden {
         transform: translateX(100%);
+        pointer-events: none;
     }
 }
 
@@ -3780,14 +3787,17 @@ select:focus {
 
     .sidebar {
         transform: translateX(-100%);
+        pointer-events: none;
     }
 
     .sidebar.open {
         transform: translateX(0);
+        pointer-events: auto;
     }
 
     .mobile-menu-toggle {
         display: flex;
+        pointer-events: auto;
     }
 
     /* Home page mobile */
