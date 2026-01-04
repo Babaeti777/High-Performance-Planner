@@ -240,27 +240,34 @@ function initTabs() {
     navItems.forEach(button => {
         button.addEventListener('click', () => {
             const targetTab = button.dataset.tab;
-
-            navItems.forEach(btn => btn.classList.remove('active'));
-            tabContents.forEach(content => content.classList.remove('active'));
-
-            button.classList.add('active');
-            document.getElementById(targetTab).classList.add('active');
-
-            // Refresh the view when switching tabs
-            switch(targetTab) {
-                case 'calendar':
-                    renderCalendar();
-                    break;
-                case 'eisenhower':
-                    renderEisenhowerMatrix();
-                    break;
-                case 'notes':
-                    renderNotes();
-                    break;
-            }
+            showTab(targetTab);
         });
     });
+}
+
+// Show a specific tab by name
+function showTab(targetTab) {
+    const navItems = document.querySelectorAll('.nav-item');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    navItems.forEach(btn => btn.classList.remove('active'));
+    tabContents.forEach(content => content.classList.remove('active'));
+
+    document.querySelector(`.nav-item[data-tab="${targetTab}"]`)?.classList.add('active');
+    document.getElementById(targetTab)?.classList.add('active');
+
+    // Refresh the view when switching tabs
+    switch(targetTab) {
+        case 'calendar':
+            renderCalendar();
+            break;
+        case 'eisenhower':
+            renderEisenhowerMatrix();
+            break;
+        case 'notes':
+            renderNotes();
+            break;
+    }
 }
 
 // ==================== Calendar (Monthly View) ====================
