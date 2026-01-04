@@ -3303,6 +3303,8 @@ select:focus {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
+    position: relative;
+    z-index: 10;
 }
 
 .quick-action-btn {
@@ -3321,6 +3323,9 @@ select:focus {
     color: var(--text-primary);
     font-size: 14px;
     font-weight: 500;
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
 .quick-action-btn:hover {
@@ -3407,6 +3412,7 @@ select:focus {
 
 .routines-modal-panel.hidden {
     transform: translateX(calc(100% + 280px));
+    pointer-events: none;
 }
 
 .routines-panel-content {
