@@ -1427,3 +1427,429 @@ select:focus {
         height: 52px;
     }
 }
+/* ==================== Additional Styles for Improvements ==================== */
+
+/* Skip Link */
+.skip-link {
+    position: absolute;
+    top: -100px;
+    left: 0;
+    background: var(--accent-primary);
+    color: white;
+    padding: 12px 20px;
+    z-index: 10000;
+    border-radius: 0 0 8px 0;
+    font-weight: 600;
+    text-decoration: none;
+    transition: top 0.3s ease;
+}
+
+.skip-link:focus {
+    top: 0;
+    outline: 2px solid white;
+    outline-offset: 2px;
+}
+
+/* Keyboard Shortcuts Help */
+.keyboard-shortcuts {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--bg-card);
+    border: 2px solid var(--accent-primary);
+    border-radius: 12px;
+    padding: 24px;
+    z-index: 10001;
+    box-shadow: 0 16px 64px rgba(0, 0, 0, 0.5);
+    max-width: 400px;
+}
+
+.keyboard-shortcuts.hidden {
+    display: none;
+}
+
+.keyboard-shortcuts h3 {
+    margin-bottom: 16px;
+    color: var(--text-primary);
+}
+
+.keyboard-shortcuts ul {
+    list-style: none;
+    padding: 0;
+}
+
+.keyboard-shortcuts li {
+    padding: 8px 0;
+    color: var(--text-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.keyboard-shortcuts kbd {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: var(--text-primary);
+    margin: 0 2px;
+}
+
+/* Search Container */
+.search-container {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.search-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.search-input {
+    flex: 1;
+    padding: 14px 20px;
+    font-size: 16px;
+    background: var(--bg-card);
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    background: var(--bg-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+/* Search Filters */
+.search-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+    padding: 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.filter-group label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Search Stats */
+.search-stats {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(16, 185, 129, 0.1));
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+}
+
+.search-stat {
+    flex: 1;
+    min-width: 120px;
+}
+
+.search-stat-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.search-stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* Search Results */
+.search-results {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.search-result-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--accent-primary);
+    border-radius: 8px;
+    padding: 16px 20px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.search-result-item:hover {
+    background: var(--bg-hover);
+    border-left-width: 6px;
+    transform: translateX(2px);
+}
+
+.search-result-item:focus {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+.search-result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.search-result-text {
+    flex: 1;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+.search-result-text mark {
+    background: var(--accent-warning);
+    color: var(--bg-primary);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-weight: 600;
+}
+
+.search-result-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.search-result-badge {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+}
+
+.search-result-badge.date {
+    background: rgba(99, 102, 241, 0.2);
+    color: var(--accent-primary);
+}
+
+.search-result-badge.priority {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--urgent-important);
+}
+
+.search-result-badge.duration {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--accent-secondary);
+}
+
+/* Focus Visible Improvements */
+*:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+button:focus-visible,
+.btn:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+.nav-item:focus-visible {
+    outline: 2px solid white;
+    outline-offset: -2px;
+}
+
+/* Improved Checkbox Focus */
+.task-checkbox:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+}
+
+/* Toast Notifications */
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+}
+
+.toast {
+    animation: slideIn 0.3s ease;
+}
+
+/* Improved Modal Accessibility */
+.modal {
+    backdrop-filter: blur(4px);
+}
+
+.modal[aria-hidden="true"] {
+    display: none;
+}
+
+/* Loading Indicator */
+.loading-indicator {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Disabled State for Undo/Redo */
+.sidebar-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.sidebar-btn:disabled:hover {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+}
+
+/* Improved Task Item Keyboard Navigation */
+.day-task-item[tabindex="0"]:focus {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+    background: var(--bg-hover);
+}
+
+.matrix-task-item[tabindex="0"]:focus {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+    background: var(--bg-hover);
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+    :root {
+        --bg-primary: #000000;
+        --bg-secondary: #1a1a1a;
+        --bg-card: #2a2a2a;
+        --text-primary: #ffffff;
+        --border-color: #ffffff;
+    }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .floating-add-btn,
+    .modal,
+    .toast {
+        animation: none;
+    }
+}
+
+/* Screen Reader Only */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* Improved Empty States */
+.empty-state {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 60px 20px;
+    font-size: 15px;
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    border: 2px dashed var(--border-color);
+}
+
+/* Print Styles */
+@media print {
+    .sidebar,
+    .floating-add-btn,
+    .timer-widget,
+    .skip-link,
+    .keyboard-shortcuts {
+        display: none !important;
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+    }
+
+    .tab-content {
+        display: block !important;
+        page-break-after: always;
+    }
+
+    body {
+        background: white;
+        color: black;
+    }
+}
+
+/* Responsive Improvements */
+@media (max-width: 768px) {
+    .search-filters {
+        grid-template-columns: 1fr;
+    }
+
+    .search-stats {
+        flex-direction: column;
+    }
+
+    .keyboard-shortcuts {
+        max-width: 90%;
+    }
+}
