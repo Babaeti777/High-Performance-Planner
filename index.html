@@ -5,41 +5,66 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>High-Performance Planner</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- Google API for Calendar Integration -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
 </head>
 <body>
     <div class="app-container">
         <!-- Sidebar Navigation -->
-        <aside class="sidebar">
+        <!-- Mobile Menu Toggle (Outside Sidebar) -->
+        <button class="mobile-menu-toggle" id="mobileMenuToggle">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
                     <span class="logo-icon">📅</span>
                     <span class="logo-text">Planner</span>
                 </div>
-                <button class="hamburger" id="sidebarToggle">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </button>
+                <button class="sidebar-close" id="sidebarClose">×</button>
             </div>
 
             <nav class="sidebar-nav">
-                <button class="nav-item active" data-tab="eisenhower">
+                <button class="nav-item active" data-tab="home">
+                    <span class="nav-icon">🏠</span>
+                    <span class="nav-text">Home</span>
+                </button>
+                <button class="nav-item" data-tab="eisenhower">
                     <span class="nav-icon">🎯</span>
                     <span class="nav-text">Prioritize</span>
                 </button>
-                <button class="nav-item" data-tab="schedule">
+                <button class="nav-item" data-tab="calendar">
                     <span class="nav-icon">📆</span>
-                    <span class="nav-text">Schedule</span>
-                </button>
-                <button class="nav-item" data-tab="monthly">
-                    <span class="nav-icon">📅</span>
-                    <span class="nav-text">Monthly</span>
+                    <span class="nav-text">Calendar</span>
                 </button>
                 <button class="nav-item" data-tab="notes">
                     <span class="nav-icon">📝</span>
                     <span class="nav-text">Notes</span>
                 </button>
+                <button class="nav-item" data-tab="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-text">Settings</span>
+                </button>
             </nav>
+
+            <!-- Google Calendar Connection -->
+            <div class="google-calendar-section">
+                <div id="googleStatus" class="google-status disconnected">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Not connected</span>
+                </div>
+                <button id="googleConnectBtn" class="sidebar-btn google-btn">
+                    <span>📅</span> <span>Connect Google</span>
+                </button>
+                <button id="googleSyncBtn" class="sidebar-btn google-sync-btn" style="display: none;">
+                    <span>🔄</span> <span>Sync Now</span>
+                </button>
+            </div>
 
             <div class="sidebar-footer">
                 <button id="exportData" class="sidebar-btn">
@@ -55,12 +80,82 @@
         <!-- Main Content Area -->
         <main class="main-content">
 
-            <!-- Eisenhower Matrix Tab (Default - Start Here) -->
-            <div id="eisenhower" class="tab-content active">
+            <!-- Home Tab - Welcome/Overview -->
+            <div id="home" class="tab-content active">
+                <div class="home-welcome">
+                    <div class="welcome-header">
+                        <h1 id="greetingText">Good Morning! 👋</h1>
+                        <p class="welcome-date" id="welcomeDate"></p>
+                    </div>
+
+                    <div class="quick-stats">
+                        <div class="stat-card-home">
+                            <span class="stat-icon">📋</span>
+                            <div class="stat-info">
+                                <span class="stat-number" id="todayTaskCount">0</span>
+                                <span class="stat-label">Tasks Today</span>
+                            </div>
+                        </div>
+                        <div class="stat-card-home">
+                            <span class="stat-icon">✅</span>
+                            <div class="stat-info">
+                                <span class="stat-number" id="completedTaskCount">0</span>
+                                <span class="stat-label">Completed</span>
+                            </div>
+                        </div>
+                        <div class="stat-card-home">
+                            <span class="stat-icon">🎯</span>
+                            <div class="stat-info">
+                                <span class="stat-number" id="urgentTaskCount">0</span>
+                                <span class="stat-label">Urgent</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="upcoming-section">
+                        <h3>⏰ Coming Up Next</h3>
+                        <div class="upcoming-list" id="upcomingList">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <div class="quick-actions">
+                        <button class="quick-action-btn" data-tab="eisenhower">
+                            <span>🎯</span>
+                            <span>Add Tasks</span>
+                        </button>
+                        <button class="quick-action-btn" data-tab="calendar">
+                            <span>📆</span>
+                            <span>View Calendar</span>
+                        </button>
+                        <button class="quick-action-btn" id="quickAddRoutine">
+                            <span>⚙️</span>
+                            <span>Manage Routines</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Routines Management Panel -->
+                <div class="routines-modal-panel hidden" id="routinesPanel">
+                    <div class="routines-panel-content">
+                        <div class="routines-panel-header">
+                            <h3>📋 Daily Routines</h3>
+                            <button class="btn btn-primary btn-sm" id="addRoutineBtn">+ Add</button>
+                            <button class="close-panel-btn" id="closeRoutinesPanel">×</button>
+                        </div>
+                        <div class="routines-list-full" id="routinesList">
+                            <!-- Routines rendered here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Eisenhower Matrix Tab -->
+            <div id="eisenhower" class="tab-content">
                 <div class="page-header">
                     <div class="page-title">
                         <h2>🎯 Prioritize Your Tasks</h2>
-                        <p class="page-description">Start here! Add tasks and categorize them by urgency and importance. Schedule them to see them in your weekly view.</p>
+                        <p class="page-description">Start here! Add tasks and categorize them by urgency and importance. Schedule them to see them in your calendar view.</p>
                     </div>
                 </div>
 
@@ -72,7 +167,7 @@
                     <span>Set duration & schedule date</span>
                     <span class="hint-arrow">→</span>
                     <span class="hint-step">3</span>
-                    <span>View in Schedule tab</span>
+                    <span>View in Calendar tab</span>
                 </div>
 
                 <div class="eisenhower-matrix">
@@ -139,89 +234,8 @@
                 </div>
             </div>
 
-            <!-- Weekly Schedule Tab -->
-            <div id="schedule" class="tab-content">
-                <div class="week-header">
-                    <button id="prevWeek" class="btn btn-nav">← Prev</button>
-                    <div class="week-info">
-                        <h2 id="weekTitle">This Week</h2>
-                        <p id="weekDateRange" class="week-range"></p>
-                    </div>
-                    <button id="nextWeek" class="btn btn-nav">Next →</button>
-                    <button id="thisWeekBtn" class="btn btn-primary">Today</button>
-                </div>
-
-                <!-- Stopwatch Timer Component -->
-                <div id="timerWidget" class="timer-widget hidden">
-                    <div class="timer-close" id="closeTimer">×</div>
-                    <div class="timer-task-name" id="timerTaskName">Task Name</div>
-                    <div class="stopwatch-container">
-                        <svg class="stopwatch-svg" viewBox="0 0 200 200">
-                            <circle class="stopwatch-bg" cx="100" cy="100" r="90"/>
-                            <circle class="stopwatch-progress" cx="100" cy="100" r="90" id="progressCircle"/>
-                        </svg>
-                        <div class="timer-display" id="timerDisplay">00:00</div>
-                    </div>
-                    <div class="timer-controls">
-                        <button id="pauseTimer" class="btn btn-secondary">⏸ Pause</button>
-                        <button id="stopTimer" class="btn btn-danger">⏹ Stop</button>
-                    </div>
-                </div>
-
-                <!-- Vertical Week Days List -->
-                <div class="week-days-container" id="weekDaysContainer">
-                    <!-- Week days will be dynamically generated here -->
-                </div>
-
-                <!-- Floating Add Task Button -->
-                <button class="floating-add-btn" id="floatingAddBtn" title="Add new task">
-                    <span class="plus-icon">+</span>
-                    <span class="btn-text">Add Task</span>
-                </button>
-            </div>
-
-            <!-- Task Modal Popup -->
-            <div id="taskModal" class="modal hidden">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3>Add New Task</h3>
-                        <button class="modal-close" id="closeModal">×</button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label>Task Name</label>
-                            <input type="text" id="modalTaskName" class="form-input" placeholder="What do you need to do?" autofocus>
-                        </div>
-                        <div class="form-group">
-                            <label>Day</label>
-                            <select id="modalTaskDay" class="form-select"></select>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Priority</label>
-                                <select id="modalTaskPriority" class="form-select">
-                                    <option value="">None</option>
-                                    <option value="urgent-important">🔥 Do First</option>
-                                    <option value="not-urgent-important">📅 Schedule</option>
-                                    <option value="urgent-not-important">⚡ Delegate</option>
-                                    <option value="not-urgent-not-important">🗑️ Low Priority</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Duration (hours)</label>
-                                <input type="number" id="modalTaskDuration" class="form-input" placeholder="2.5" min="0" step="0.5">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" id="cancelModal">Cancel</button>
-                        <button class="btn btn-primary" id="saveTask">Add Task</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Monthly Planner Tab -->
-            <div id="monthly" class="tab-content">
+            <!-- Calendar Tab (Monthly View) -->
+            <div id="calendar" class="tab-content">
                 <div class="planner-header">
                     <button id="prevMonth" class="btn btn-nav">← Prev</button>
                     <div class="month-display">
@@ -229,10 +243,10 @@
                         <select id="yearSelect" class="year-select"></select>
                     </div>
                     <button id="nextMonth" class="btn btn-nav">Next →</button>
-                    <button id="thisMonthBtn" class="btn btn-primary">This Month</button>
+                    <button id="thisMonthBtn" class="btn btn-primary">Today</button>
                 </div>
 
-                <div class="calendar" id="calendar"></div>
+                <div class="calendar" id="calendarGrid"></div>
 
                 <div class="monthly-sections">
                     <div class="monthly-goals">
@@ -250,6 +264,302 @@
                         <button id="saveMonthlyLessons" class="btn btn-primary">Save Reflections</button>
                     </div>
                 </div>
+            </div>
+
+            <!-- Day/Week View Popup Modal -->
+            <div id="dayWeekModal" class="modal hidden">
+                <div class="modal-content day-week-modal-content">
+                    <div class="modal-header day-week-header">
+                        <div class="day-week-tabs">
+                            <button class="view-tab active" data-view="day">Day View</button>
+                            <button class="view-tab" data-view="week">Week View</button>
+                        </div>
+                        <div class="day-week-title">
+                            <h3 id="dayWeekTitle">January 1, 2026</h3>
+                        </div>
+                        <div class="day-week-actions">
+                            <button class="btn btn-secondary" id="openMatrixFromDay">🎯 Open Matrix</button>
+                            <button class="modal-close" id="closeDayWeek">×</button>
+                        </div>
+                    </div>
+                    <div class="modal-body day-week-body">
+                        <!-- Day View (Gantt Chart Style) -->
+                        <div id="dayViewContainer" class="day-view-container">
+                            <div class="gantt-header">
+                                <div class="gantt-time-labels" id="ganttTimeLabels"></div>
+                            </div>
+                            <div class="gantt-chart" id="ganttChart">
+                                <!-- Tasks will be rendered here -->
+                            </div>
+                            <div class="day-task-list" id="dayTaskList">
+                                <!-- Detailed task list for the day -->
+                            </div>
+                        </div>
+
+                        <!-- Week View (Google Calendar Style) -->
+                        <div id="weekViewContainer" class="week-view-container hidden">
+                            <div class="week-navigation">
+                                <button id="prevWeekPopup" class="btn btn-nav">← Prev Week</button>
+                                <span id="weekRangeLabel" class="week-range-label"></span>
+                                <button id="nextWeekPopup" class="btn btn-nav">Next Week →</button>
+                            </div>
+                            <div class="week-calendar-grid">
+                                <div class="week-time-column" id="weekTimeColumn"></div>
+                                <div class="week-days-columns" id="weekDaysColumns"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer day-week-footer">
+                        <button class="btn btn-secondary" id="addTaskFromPopup">+ Add Task</button>
+                        <button class="btn btn-primary" id="closeDayWeekBtn">Done</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Task Modal Popup -->
+            <div id="taskModal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Add New Task</h3>
+                        <button class="modal-close" id="closeModal">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label>Task Name</label>
+                            <input type="text" id="modalTaskName" class="form-input" placeholder="What do you need to do?" autofocus>
+                        </div>
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="date" id="modalTaskDate" class="form-input">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Start Time</label>
+                                <input type="time" id="modalTaskStartTime" class="form-input" value="09:00">
+                            </div>
+                            <div class="form-group">
+                                <label>Duration (hours)</label>
+                                <input type="number" id="modalTaskDuration" class="form-input" placeholder="1" min="0.5" step="0.5" value="1">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Priority (Eisenhower Quadrant)</label>
+                            <select id="modalTaskPriority" class="form-select">
+                                <option value="">None</option>
+                                <option value="urgent-important">🔥 Do First (Urgent & Important)</option>
+                                <option value="not-urgent-important">📅 Schedule (Important, Not Urgent)</option>
+                                <option value="urgent-not-important">⚡ Delegate (Urgent, Not Important)</option>
+                                <option value="not-urgent-not-important">🗑️ Low Priority</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" id="cancelModal">Cancel</button>
+                        <button class="btn btn-primary" id="saveTask">Add Task</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enhanced Countdown Timer Modal -->
+            <div id="timerModal" class="timer-modal hidden">
+                <div class="timer-modal-content" id="timerModalContent">
+                    <div class="timer-header">
+                        <button class="timer-fullscreen-btn" id="timerFullscreenBtn" title="Fullscreen (Ctrl+Esc to exit)">⛶</button>
+                        <button class="timer-close-btn" id="closeTimerModal">×</button>
+                    </div>
+
+                    <div class="timer-body">
+                        <div class="timer-task-info">
+                            <span class="timer-task-icon">⏳</span>
+                            <h2 class="timer-task-name" id="timerTaskName">Task Name</h2>
+                        </div>
+
+                        <div class="timer-progress-container">
+                            <div class="timer-time-display">
+                                <span class="countdown-time" id="countdownDisplay">00:00:00</span>
+                                <span class="countdown-label" id="countdownLabel">remaining</span>
+                            </div>
+                            <div class="timer-progress-bar">
+                                <div class="timer-progress-fill" id="timerProgressFill"></div>
+                            </div>
+                            <div class="timer-progress-markers">
+                                <span>0%</span>
+                                <span>25%</span>
+                                <span>50%</span>
+                                <span>75%</span>
+                                <span>100%</span>
+                            </div>
+                        </div>
+
+                        <div class="timer-controls-new">
+                            <button id="timerRestart" class="timer-btn timer-btn-restart" title="Restart">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                    <path d="M3 3v5h5"/>
+                                </svg>
+                                <span>Restart</span>
+                            </button>
+                            <button id="timerPlayPause" class="timer-btn timer-btn-primary">
+                                <span class="play-icon">
+                                    <svg viewBox="0 0 24 24" fill="currentColor">
+                                        <polygon points="5 3 19 12 5 21 5 3"/>
+                                    </svg>
+                                </span>
+                                <span class="pause-icon hidden">
+                                    <svg viewBox="0 0 24 24" fill="currentColor">
+                                        <rect x="6" y="4" width="4" height="16"/>
+                                        <rect x="14" y="4" width="4" height="16"/>
+                                    </svg>
+                                </span>
+                                <span class="btn-label play-label">Start</span>
+                                <span class="btn-label pause-label hidden">Pause</span>
+                            </button>
+                            <button id="timerStop" class="timer-btn timer-btn-stop" title="Stop & Save">
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                    <rect x="4" y="4" width="16" height="16" rx="2"/>
+                                </svg>
+                                <span>Stop</span>
+                            </button>
+                        </div>
+
+                        <div class="motivation-container">
+                            <p class="motivation-quote" id="motivationQuote">"The secret of getting ahead is getting started."</p>
+                            <span class="motivation-author" id="motivationAuthor">— Mark Twain</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Routine Add/Edit Modal -->
+            <div id="routineModal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 id="routineModalTitle">Add Routine</h3>
+                        <button class="modal-close" id="closeRoutineModal">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-row">
+                            <div class="form-group" style="flex:0 0 80px;">
+                                <label>Icon</label>
+                                <div class="emoji-picker-mini" id="routineEmojiPicker">
+                                    <button class="emoji-selected" id="selectedEmoji">🏃</button>
+                                    <div class="emoji-dropdown hidden" id="emojiDropdown">
+                                        <button data-emoji="🏃">🏃</button>
+                                        <button data-emoji="🧘">🧘</button>
+                                        <button data-emoji="💪">💪</button>
+                                        <button data-emoji="🍳">🍳</button>
+                                        <button data-emoji="☕">☕</button>
+                                        <button data-emoji="📚">📚</button>
+                                        <button data-emoji="💼">💼</button>
+                                        <button data-emoji="🎯">🎯</button>
+                                        <button data-emoji="✍️">✍️</button>
+                                        <button data-emoji="🧹">🧹</button>
+                                        <button data-emoji="🛁">🛁</button>
+                                        <button data-emoji="😴">😴</button>
+                                        <button data-emoji="🍽️">🍽️</button>
+                                        <button data-emoji="🚶">🚶</button>
+                                        <button data-emoji="🧠">🧠</button>
+                                        <button data-emoji="💻">💻</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label>Routine Name</label>
+                                <input type="text" id="routineName" class="form-input" placeholder="e.g., Morning Exercise">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Start Time</label>
+                                <input type="time" id="routineStartTime" class="form-input" value="09:00">
+                            </div>
+                            <div class="form-group">
+                                <label>Duration (hours)</label>
+                                <input type="number" id="routineDuration" class="form-input" value="1" min="0.25" step="0.25">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Color</label>
+                            <div class="color-picker-grid" id="routineColorPicker">
+                                <button class="color-option selected" data-color="#6366f1" style="background:#6366f1"></button>
+                                <button class="color-option" data-color="#8b5cf6" style="background:#8b5cf6"></button>
+                                <button class="color-option" data-color="#ec4899" style="background:#ec4899"></button>
+                                <button class="color-option" data-color="#ef4444" style="background:#ef4444"></button>
+                                <button class="color-option" data-color="#f59e0b" style="background:#f59e0b"></button>
+                                <button class="color-option" data-color="#10b981" style="background:#10b981"></button>
+                                <button class="color-option" data-color="#06b6d4" style="background:#06b6d4"></button>
+                                <button class="color-option" data-color="#3b82f6" style="background:#3b82f6"></button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Days</label>
+                            <div class="days-picker" id="routineDaysPicker">
+                                <button class="day-option selected" data-day="0">Sun</button>
+                                <button class="day-option selected" data-day="1">Mon</button>
+                                <button class="day-option selected" data-day="2">Tue</button>
+                                <button class="day-option selected" data-day="3">Wed</button>
+                                <button class="day-option selected" data-day="4">Thu</button>
+                                <button class="day-option selected" data-day="5">Fri</button>
+                                <button class="day-option selected" data-day="6">Sat</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" id="cancelRoutineModal">Cancel</button>
+                        <button class="btn btn-danger" id="deleteRoutineBtn" style="display:none">Delete</button>
+                        <button class="btn btn-primary" id="saveRoutineBtn">Save Routine</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Google Calendar Settings Modal -->
+            <div id="googleSettingsModal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Google Calendar Settings</h3>
+                        <button class="modal-close" id="closeGoogleSettings">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="google-setup-info">
+                            <h4>Setup Instructions</h4>
+                            <ol class="setup-steps">
+                                <li>Go to <a href="https://console.cloud.google.com" target="_blank">Google Cloud Console</a></li>
+                                <li>Create a new project (or select existing)</li>
+                                <li>Enable the <strong>Google Calendar API</strong></li>
+                                <li>Go to Credentials → Create OAuth 2.0 Client ID</li>
+                                <li>Set Application type to "Web application"</li>
+                                <li>Add your domain to Authorized JavaScript origins</li>
+                                <li>Copy your Client ID below</li>
+                            </ol>
+                        </div>
+                        <div class="form-group">
+                            <label>Google OAuth Client ID</label>
+                            <input type="text" id="googleClientId" class="form-input" placeholder="Your-Client-ID.apps.googleusercontent.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Sync Options</label>
+                            <div class="sync-options">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="syncToGoogle" checked>
+                                    <span>Sync tasks to Google Calendar</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="syncFromGoogle">
+                                    <span>Import events from Google Calendar</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" id="cancelGoogleSettings">Cancel</button>
+                        <button class="btn btn-primary" id="saveGoogleSettings">Save & Connect</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Toast Notification -->
+            <div id="toast" class="toast hidden">
+                <span id="toastMessage"></span>
             </div>
 
             <!-- Notes Tab -->
@@ -273,7 +583,214 @@
                 </div>
             </div>
 
+            <!-- Settings Tab -->
+            <div id="settings" class="tab-content">
+                <div class="page-header">
+                    <h2>⚙️ Settings</h2>
+                    <p class="page-description">Configure your planner preferences and integrations.</p>
+                </div>
+
+                <div class="settings-container">
+                    <!-- Google Calendar Settings -->
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">
+                            <span class="settings-icon">📅</span>
+                            Google Calendar Integration
+                        </h3>
+                        <div class="settings-card">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label>OAuth Client ID</label>
+                                    <p class="setting-description">Your Google Cloud OAuth 2.0 Client ID for calendar sync</p>
+                                </div>
+                                <div class="setting-control">
+                                    <input type="text" id="settingsClientId" class="settings-input" placeholder="Your-Client-ID.apps.googleusercontent.com">
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label>Connection Status</label>
+                                    <p class="setting-description">Current Google Calendar connection status</p>
+                                </div>
+                                <div class="setting-control">
+                                    <div id="settingsGoogleStatus" class="settings-status disconnected">
+                                        <span class="status-indicator"></span>
+                                        <span class="status-label">Not connected</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="setting-actions">
+                                <button id="saveClientId" class="btn btn-primary">Save Client ID</button>
+                                <button id="settingsConnectGoogle" class="btn btn-secondary">Connect Google</button>
+                                <button id="settingsDisconnectGoogle" class="btn btn-danger" style="display: none;">Disconnect</button>
+                            </div>
+                            <div class="settings-help">
+                                <details>
+                                    <summary>How to get a Client ID?</summary>
+                                    <ol>
+                                        <li>Go to <a href="https://console.cloud.google.com" target="_blank">Google Cloud Console</a></li>
+                                        <li>Create a new project or select existing</li>
+                                        <li>Enable the <strong>Google Calendar API</strong></li>
+                                        <li>Go to Credentials → Create OAuth 2.0 Client ID</li>
+                                        <li>Set type to "Web application"</li>
+                                        <li>Add your domain to Authorized JavaScript origins</li>
+                                        <li>Copy the Client ID and paste above</li>
+                                    </ol>
+                                </details>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sync Settings -->
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">
+                            <span class="settings-icon">🔄</span>
+                            Sync Options
+                        </h3>
+                        <div class="settings-card">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label>Auto-sync tasks</label>
+                                    <p class="setting-description">Automatically sync scheduled tasks to Google Calendar</p>
+                                </div>
+                                <div class="setting-control">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="settingsAutoSync" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label>Import from Google</label>
+                                    <p class="setting-description">Import events from Google Calendar as tasks</p>
+                                </div>
+                                <div class="setting-control">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="settingsImportGoogle">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Calendar Selection -->
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">
+                            <span class="settings-icon">📅</span>
+                            Calendars to Sync
+                        </h3>
+                        <div class="settings-card">
+                            <p class="setting-description" style="margin-bottom: 12px;">Select which Google Calendars to import events from:</p>
+                            <div id="calendarSelectionList" class="calendar-selection-list">
+                                <p class="calendar-list-empty">Connect to Google Calendar to see your calendars</p>
+                            </div>
+                            <button id="refreshCalendarList" class="btn btn-secondary" style="margin-top: 12px;">
+                                Refresh Calendar List
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Data Management -->
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">
+                            <span class="settings-icon">💾</span>
+                            Data Management
+                        </h3>
+                        <div class="settings-card">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label>Export Data</label>
+                                    <p class="setting-description">Download all your tasks and notes as JSON</p>
+                                </div>
+                                <div class="setting-control">
+                                    <button id="settingsExport" class="btn btn-secondary">Export</button>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label>Import Data</label>
+                                    <p class="setting-description">Restore from a previously exported file</p>
+                                </div>
+                                <div class="setting-control">
+                                    <button id="settingsImport" class="btn btn-secondary">Import</button>
+                                    <input type="file" id="settingsImportFile" accept=".json" style="display: none;">
+                                </div>
+                            </div>
+                            <div class="setting-item danger">
+                                <div class="setting-info">
+                                    <label>Clear All Data</label>
+                                    <p class="setting-description">Permanently delete all tasks, notes, and settings</p>
+                                </div>
+                                <div class="setting-control">
+                                    <button id="settingsClearData" class="btn btn-danger">Clear All</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Floating Add Task Button -->
+            <button class="floating-add-btn" id="floatingAddBtn" title="Add new task">
+                <span class="plus-icon">+</span>
+                <span class="btn-text">Add Task</span>
+            </button>
+
         </main>
+
+        <!-- Right Schedule Sidebar (Persistent) -->
+        <aside class="schedule-sidebar" id="scheduleSidebar">
+            <!-- Mobile Toggle Button -->
+            <button class="schedule-toggle-btn" id="scheduleToggleBtn">
+                <span>📅</span>
+            </button>
+
+            <div class="schedule-sidebar-content">
+                <!-- Mini Clock -->
+                <div class="mini-clock-section">
+                    <svg class="mini-clock-svg" viewBox="0 0 100 100" id="miniClock">
+                        <circle class="mini-clock-face" cx="50" cy="50" r="48"/>
+                        <g class="mini-clock-dots" id="miniClockDots"></g>
+                        <line class="mini-clock-hand mini-hour-hand" id="miniHourHand" x1="50" y1="50" x2="50" y2="25"/>
+                        <line class="mini-clock-hand mini-minute-hand" id="miniMinuteHand" x1="50" y1="50" x2="50" y2="18"/>
+                        <circle class="mini-clock-center" cx="50" cy="50" r="3"/>
+                    </svg>
+                    <div class="mini-time-display">
+                        <span class="mini-digital-time" id="miniDigitalTime">00:00</span>
+                        <span class="mini-date" id="miniDate">Today</span>
+                    </div>
+                </div>
+
+                <!-- Current Activity -->
+                <div class="current-activity-mini" id="currentActivityMini">
+                    <span class="activity-now-label">Now</span>
+                    <span class="activity-now-name" id="currentActivityMiniName">Free time</span>
+                </div>
+
+                <!-- Vertical Timeline (6 hours) -->
+                <div class="vertical-timeline" id="verticalTimeline">
+                    <div class="timeline-header-bar">
+                        <span>Schedule</span>
+                    </div>
+                    <div class="vertical-timeline-scroll" id="verticalTimelineScroll">
+                        <!-- Timeline hours and blocks rendered by JS -->
+                    </div>
+                </div>
+
+                <!-- Quick Routine List -->
+                <div class="sidebar-routines">
+                    <div class="sidebar-routines-header">
+                        <span>Today's Routines</span>
+                        <button class="btn-icon" id="sidebarManageRoutines" title="Manage">⚙️</button>
+                    </div>
+                    <div class="sidebar-routines-list" id="sidebarRoutinesList">
+                        <!-- Routines rendered here -->
+                    </div>
+                </div>
+            </div>
+        </aside>
     </div>
 
     <script src="app.js"></script>
