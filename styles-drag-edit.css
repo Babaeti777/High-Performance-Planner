@@ -1,0 +1,405 @@
+/* ==================== Drag and Drop Styles ==================== */
+
+/* Draggable task items */
+[draggable="true"] {
+    cursor: move;
+    cursor: grab;
+    transition: all 0.2s ease;
+}
+
+[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+/* Task being dragged */
+.dragging {
+    opacity: 0.5 !important;
+    transform: scale(0.95);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+}
+
+/* Drop zones */
+.drop-zone {
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+/* Drop zone when dragging over */
+.drop-zone.drag-over {
+    background: rgba(99, 102, 241, 0.1) !important;
+    border-color: var(--accent-primary) !important;
+    box-shadow: inset 0 0 0 2px var(--accent-primary);
+}
+
+/* Drop indicator - before */
+.drop-zone.drop-before::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--accent-primary);
+    border-radius: 2px;
+    animation: pulse 1s ease-in-out infinite;
+    z-index: 10;
+}
+
+/* Drop indicator - after */
+.drop-zone.drop-after::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--accent-primary);
+    border-radius: 2px;
+    animation: pulse 1s ease-in-out infinite;
+    z-index: 10;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Day card drop zones */
+.day-card.drop-zone {
+    min-height: 100px;
+}
+
+.day-card.drop-zone.drag-over {
+    background: linear-gradient(135deg,
+        rgba(99, 102, 241, 0.15),
+        rgba(16, 185, 129, 0.1)
+    ) !important;
+}
+
+/* Empty drop zones indicator */
+.day-tasks-list:empty.drop-zone::before {
+    content: 'Drop task here';
+    display: block;
+    text-align: center;
+    padding: 30px 10px;
+    color: var(--text-muted);
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.day-tasks-list:empty.drop-zone.drag-over::before {
+    opacity: 1;
+}
+
+/* Matrix quadrant drop zones */
+.matrix-task-list.drop-zone {
+    min-height: 80px;
+}
+
+.matrix-task-list:empty.drop-zone::before {
+    content: 'Drop task here';
+    display: block;
+    text-align: center;
+    padding: 20px 10px;
+    color: var(--text-muted);
+    font-size: 12px;
+    opacity: 0;
+}
+
+.matrix-task-list:empty.drop-zone.drag-over::before {
+    opacity: 1;
+}
+
+/* Calendar day drop zones */
+.calendar-day.drop-zone:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.calendar-day.drop-zone.drag-over {
+    background: var(--accent-primary) !important;
+    transform: scale(1.08);
+}
+
+/* ==================== Task Edit Styles ==================== */
+
+/* Edit button */
+.task-edit-btn {
+    padding: 4px 8px;
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    opacity: 0;
+}
+
+.day-task-item:hover .task-edit-btn,
+.matrix-task-item:hover .task-edit-btn {
+    opacity: 1;
+}
+
+.task-edit-btn:hover {
+    background: var(--accent-primary);
+    color: white;
+    transform: scale(1.1);
+}
+
+.task-edit-btn:focus {
+    opacity: 1;
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+/* Double-click hint */
+[title*="Double-click"]::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    pointer-events: none;
+}
+
+/* Validation errors */
+.validation-error {
+    display: block;
+    color: var(--accent-danger);
+    font-size: 12px;
+    margin-top: 4px;
+    min-height: 18px;
+}
+
+.form-input.invalid,
+.form-select.invalid {
+    border-color: var(--accent-danger);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.form-input.invalid:focus,
+.form-select.invalid:focus {
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+/* Checkbox label */
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.checkbox-label:hover {
+    color: var(--text-primary);
+}
+
+/* Edit modal specific styles */
+#taskEditModal .modal-content {
+    max-width: 500px;
+}
+
+#taskEditModal .form-group {
+    margin-bottom: 20px;
+}
+
+#taskEditModal textarea.form-input {
+    resize: vertical;
+    min-height: 80px;
+    font-family: inherit;
+    line-height: 1.5;
+}
+
+#taskEditModal .modal-footer {
+    gap: 8px;
+}
+
+#taskEditModal #deleteTaskBtn {
+    margin-right: auto;
+}
+
+/* ==================== Drag Handle Icon ==================== */
+
+.drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    color: var(--text-muted);
+    cursor: grab;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.drag-handle::before {
+    content: '⋮⋮';
+    font-size: 14px;
+    letter-spacing: -2px;
+}
+
+.day-task-item:hover .drag-handle,
+.matrix-task-item:hover .drag-handle {
+    opacity: 0.6;
+}
+
+.drag-handle:hover {
+    opacity: 1 !important;
+    color: var(--text-primary);
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+/* ==================== Task Item Enhancements ==================== */
+
+/* Task items with edit and drag */
+.day-task-item,
+.matrix-task-item {
+    position: relative;
+}
+
+.day-task-item:hover,
+.matrix-task-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Task actions container */
+.task-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.day-task-item:hover .task-actions,
+.matrix-task-item:hover .task-actions,
+.task-actions:focus-within {
+    opacity: 1;
+}
+
+/* ==================== Mobile Drag Support ==================== */
+
+@media (max-width: 768px) {
+    /* Show drag handles on mobile */
+    .drag-handle {
+        opacity: 0.6;
+    }
+
+    /* Larger touch targets */
+    .task-edit-btn {
+        opacity: 1;
+        padding: 8px 12px;
+        font-size: 16px;
+    }
+
+    /* Simpler drop indicators on mobile */
+    .drop-zone.drag-over {
+        background: var(--accent-primary) !important;
+        opacity: 0.3;
+    }
+
+    .drop-zone.drop-before::before,
+    .drop-zone.drop-after::after {
+        height: 6px;
+    }
+}
+
+/* ==================== Touch Device Support ==================== */
+
+@media (hover: none) and (pointer: coarse) {
+    /* Touch devices - always show controls */
+    .task-edit-btn,
+    .drag-handle,
+    .task-actions {
+        opacity: 1;
+    }
+
+    /* Larger tap targets */
+    .task-edit-btn,
+    .task-delete-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+}
+
+/* ==================== Accessibility ==================== */
+
+/* Keyboard focus for draggable items */
+[draggable="true"]:focus {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+/* Screen reader only text for drag instructions */
+.drag-instructions {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* Announce drag state to screen readers */
+[aria-grabbed="true"] {
+    border: 2px dashed var(--accent-primary);
+}
+
+[aria-dropeffect="move"] {
+    border-color: var(--accent-secondary);
+}
+
+/* ==================== Animation Performance ==================== */
+
+/* Use transform for better performance */
+.dragging,
+.drop-zone,
+.task-edit-btn,
+.drag-handle {
+    will-change: transform, opacity;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+    .dragging,
+    .drop-zone,
+    .task-edit-btn,
+    .drag-handle {
+        transition: none;
+        animation: none;
+    }
+
+    .drop-zone.drop-before::before,
+    .drop-zone.drop-after::after {
+        animation: none;
+    }
+}
+
+/* ==================== Print Styles ==================== */
+
+@media print {
+    .drag-handle,
+    .task-edit-btn,
+    .task-actions {
+        display: none !important;
+    }
+
+    [draggable] {
+        cursor: default !important;
+    }
+}
