@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>High-Performance Planner</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles-additions.css">
     <!-- Google API for Calendar Integration -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
@@ -49,6 +50,10 @@
                 <button class="nav-item" data-tab="settings">
                     <span class="nav-icon">⚙️</span>
                     <span class="nav-text">Settings</span>
+                </button>
+                <button class="nav-item" data-tab="bids">
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-text">Bid Tracker</span>
                 </button>
             </nav>
 
@@ -732,6 +737,231 @@
                 </div>
             </div>
 
+            <!-- Bid Tracker Tab -->
+            <div id="bids" class="tab-content">
+                <div class="page-header">
+                    <h2>📋 Bid Tracker</h2>
+                    <p class="page-description">Track your bids and generate Outlook calendar events (.ICS files) with reminders.</p>
+                </div>
+
+                <div class="bid-tracker-container">
+                    <!-- Quick Add Section -->
+                    <div class="bid-input-section">
+                        <div class="bid-input-tabs">
+                            <button class="bid-tab-btn active" data-input="manual">Manual Entry</button>
+                            <button class="bid-tab-btn" data-input="extract">Extract from ITB</button>
+                        </div>
+
+                        <!-- Manual Entry Form -->
+                        <div class="bid-input-form active" id="bidManualForm">
+                            <div class="form-row">
+                                <div class="form-group" style="flex: 2;">
+                                    <label>Project Name *</label>
+                                    <input type="text" id="bidProjectName" class="form-input" placeholder="e.g., Highway 101 Reconstruction">
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label>Bid Number</label>
+                                    <input type="text" id="bidNumber" class="form-input" placeholder="e.g., ITB-2026-001">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Client/Agency *</label>
+                                    <input type="text" id="bidClient" class="form-input" placeholder="e.g., Caltrans">
+                                </div>
+                                <div class="form-group">
+                                    <label>Estimated Value</label>
+                                    <input type="text" id="bidValue" class="form-input" placeholder="e.g., $2,500,000">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Bid Due Date/Time *</label>
+                                    <input type="datetime-local" id="bidDueDate" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Pre-Bid Meeting</label>
+                                    <input type="datetime-local" id="bidPreBidDate" class="form-input">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>RFI/Questions Due</label>
+                                    <input type="datetime-local" id="bidRfiDate" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Site Visit Date</label>
+                                    <input type="datetime-local" id="bidSiteVisit" class="form-input">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Status</label>
+                                    <select id="bidStatus" class="form-select">
+                                        <option value="researching">Researching</option>
+                                        <option value="preparing">Preparing</option>
+                                        <option value="submitted">Submitted</option>
+                                        <option value="won">Won</option>
+                                        <option value="lost">Lost</option>
+                                        <option value="no-bid">No Bid</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Notes</label>
+                                    <input type="text" id="bidNotes" class="form-input" placeholder="Any additional notes...">
+                                </div>
+                            </div>
+                            <div class="bid-form-actions">
+                                <button class="btn btn-primary" id="addBidBtn">Add Bid</button>
+                                <button class="btn btn-secondary" id="clearBidFormBtn">Clear</button>
+                            </div>
+                        </div>
+
+                        <!-- ITB Text Extraction Form -->
+                        <div class="bid-input-form" id="bidExtractForm">
+                            <div class="form-group">
+                                <label>Paste ITB Document Text</label>
+                                <textarea id="itbTextArea" class="form-textarea" rows="10" placeholder="Paste the text from your ITB document here...
+
+The system will attempt to extract:
+- Project name
+- Bid due date/time
+- Pre-bid meeting date
+- RFI/Questions deadline
+- Client/Agency name
+
+Tip: Copy the key sections that contain dates and project information."></textarea>
+                            </div>
+                            <div class="bid-form-actions">
+                                <button class="btn btn-primary" id="extractDatesBtn">Extract Dates</button>
+                                <button class="btn btn-secondary" id="clearExtractBtn">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Bids List -->
+                    <div class="bids-list-section">
+                        <div class="bids-list-header">
+                            <h3>Active Bids</h3>
+                            <div class="bid-filters">
+                                <select id="bidFilterStatus" class="form-select-sm">
+                                    <option value="all">All Status</option>
+                                    <option value="researching">Researching</option>
+                                    <option value="preparing">Preparing</option>
+                                    <option value="submitted">Submitted</option>
+                                    <option value="won">Won</option>
+                                    <option value="lost">Lost</option>
+                                    <option value="no-bid">No Bid</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="bids-table-container">
+                            <table class="bids-table" id="bidsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Project</th>
+                                        <th>Client</th>
+                                        <th>Bid Due</th>
+                                        <th>RFI Due</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bidsTableBody">
+                                    <!-- Bids rendered here -->
+                                </tbody>
+                            </table>
+                            <div class="empty-bids-state" id="emptyBidsState">
+                                <span class="empty-icon">📋</span>
+                                <p>No bids tracked yet. Add your first bid above!</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Upcoming Deadlines -->
+                    <div class="bid-deadlines-section">
+                        <h3>Upcoming Deadlines</h3>
+                        <div class="deadlines-timeline" id="deadlinesTimeline">
+                            <!-- Deadlines rendered here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bid Edit Modal -->
+            <div id="bidEditModal" class="modal hidden">
+                <div class="modal-content bid-modal-content">
+                    <div class="modal-header">
+                        <h3 id="bidModalTitle">Edit Bid</h3>
+                        <button class="modal-close" id="closeBidModal">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 2;">
+                                <label>Project Name *</label>
+                                <input type="text" id="editBidProjectName" class="form-input">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label>Bid Number</label>
+                                <input type="text" id="editBidNumber" class="form-input">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Client/Agency *</label>
+                                <input type="text" id="editBidClient" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label>Estimated Value</label>
+                                <input type="text" id="editBidValue" class="form-input">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Bid Due Date/Time *</label>
+                                <input type="datetime-local" id="editBidDueDate" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label>Pre-Bid Meeting</label>
+                                <input type="datetime-local" id="editBidPreBidDate" class="form-input">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>RFI/Questions Due</label>
+                                <input type="datetime-local" id="editBidRfiDate" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label>Site Visit Date</label>
+                                <input type="datetime-local" id="editBidSiteVisit" class="form-input">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Status</label>
+                                <select id="editBidStatus" class="form-select">
+                                    <option value="researching">Researching</option>
+                                    <option value="preparing">Preparing</option>
+                                    <option value="submitted">Submitted</option>
+                                    <option value="won">Won</option>
+                                    <option value="lost">Lost</option>
+                                    <option value="no-bid">No Bid</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Notes</label>
+                                <input type="text" id="editBidNotes" class="form-input">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-danger" id="deleteBidBtn">Delete Bid</button>
+                        <button class="btn btn-secondary" id="cancelBidEdit">Cancel</button>
+                        <button class="btn btn-primary" id="saveBidEdit">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Floating Add Task Button -->
             <button class="floating-add-btn" id="floatingAddBtn" title="Add new task">
                 <span class="plus-icon">+</span>
@@ -794,5 +1024,6 @@
     </div>
 
     <script src="app.js"></script>
+    <script src="js/services/bid-tracker.js"></script>
 </body>
 </html>
