@@ -267,6 +267,11 @@ function showTab(targetTab) {
         case 'notes':
             renderNotes();
             break;
+        case 'bids':
+            if (typeof BidTracker !== 'undefined') {
+                BidTracker.render();
+            }
+            break;
     }
 }
 
