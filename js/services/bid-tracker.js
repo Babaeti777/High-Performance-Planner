@@ -14,6 +14,8 @@ const BidTracker = {
         this.bindEvents();
         this.render();
         this.initPdfJs();
+        // Sync existing bids to Calendar and Matrix
+        setTimeout(() => this.syncToCalendarAndMatrix(), 500);
     },
 
     // Initialize PDF.js
@@ -330,6 +332,7 @@ const BidTracker = {
 
         this.bids.push(bid);
         this.saveBids();
+        this.syncToCalendarAndMatrix(); // Sync to Calendar & Matrix
         this.clearForm();
         this.render();
         this.showToast('Bid added successfully!', 'success');
@@ -779,6 +782,7 @@ const BidTracker = {
         bid.notes = document.getElementById('editBidNotes').value.trim();
 
         this.saveBids();
+        this.syncToCalendarAndMatrix(); // Sync to Calendar & Matrix
         this.closeModal();
         this.render();
         this.showToast('Bid updated successfully!', 'success');
@@ -790,6 +794,7 @@ const BidTracker = {
 
         this.bids = this.bids.filter(b => b.id !== this.editingBidId);
         this.saveBids();
+        this.syncToCalendarAndMatrix(); // Sync to Calendar & Matrix
         this.closeModal();
         this.render();
         this.showToast('Bid deleted', 'success');
@@ -1079,6 +1084,235 @@ const BidTracker = {
         } else {
             console.log(`[${type}] ${message}`);
         }
+    },
+
+    // ==================== Calendar & Matrix Integration ====================
+
+    // Sync all bid events to Calendar and Eisenhower Matrix
+    syncToCalendarAndMatrix() {
+        if (typeof AppState === 'undefined') {
+            console.warn('AppState not available for bid sync');
+            return;
+        }
+
+        // First, remove all existing bid events
+        this.removeBidEventsFromApp();
+
+        // Get active bids only
+        const activeBids = this.bids.filter(b => ['researching', 'preparing'].includes(b.status));
+
+        // Add events for each active bid
+        activeBids.forEach(bid => {
+            this.addBidEventsToApp(bid);
+        });
+
+        // Save and refresh views
+        if (typeof saveData === 'function') {
+            saveData();
+        }
+        if (typeof renderCalendar === 'function') {
+            renderCalendar();
+        }
+        if (typeof renderEisenhowerMatrix === 'function') {
+            renderEisenhowerMatrix();
+        }
+    },
+
+    // Remove all bid-related events from Calendar and Matrix
+    removeBidEventsFromApp() {
+        if (typeof AppState === 'undefined') return;
+
+        // Remove from daily calendar
+        Object.keys(AppState.data.daily).forEach(dateKey => {
+            if (AppState.data.daily[dateKey]?.tasks) {
+                AppState.data.daily[dateKey].tasks = AppState.data.daily[dateKey].tasks.filter(
+                    task => task.source !== 'bid-tracker'
+                );
+            }
+        });
+
+        // Remove from Eisenhower matrix
+        Object.keys(AppState.data.eisenhower).forEach(quadrant => {
+            AppState.data.eisenhower[quadrant] = AppState.data.eisenhower[quadrant].filter(
+                task => task.source !== 'bid-tracker'
+            );
+        });
+    },
+
+    // Add events for a single bid to Calendar and Matrix
+    addBidEventsToApp(bid) {
+        if (typeof AppState === 'undefined') return;
+
+        const now = new Date();
+        const events = this.generateBidSyncEvents(bid);
+
+        events.forEach(event => {
+            if (event.date <= now) return; // Skip past events
+
+            const dateKey = this.formatDateKey(event.date);
+
+            // Add to daily calendar
+            if (!AppState.data.daily[dateKey]) {
+                AppState.data.daily[dateKey] = { tasks: [] };
+            }
+
+            const calendarTask = {
+                id: `bid-${bid.id}-${event.type}`,
+                text: event.title,
+                completed: false,
+                source: 'bid-tracker',
+                bidId: bid.id,
+                eventType: event.type,
+                startTime: this.formatTimeString(event.date),
+                duration: event.duration || 1,
+                color: event.color,
+                createdAt: new Date().toISOString()
+            };
+
+            // Check if task already exists
+            const existingIndex = AppState.data.daily[dateKey].tasks.findIndex(
+                t => t.id === calendarTask.id
+            );
+            if (existingIndex === -1) {
+                AppState.data.daily[dateKey].tasks.push(calendarTask);
+            }
+
+            // Add urgent/important items to Eisenhower Matrix
+            if (event.urgent) {
+                const quadrant = 'urgent-important';
+                const matrixTask = {
+                    id: `bid-${bid.id}-${event.type}`,
+                    text: event.title,
+                    completed: false,
+                    source: 'bid-tracker',
+                    bidId: bid.id,
+                    eventType: event.type,
+                    scheduledDate: dateKey,
+                    duration: event.duration || 1,
+                    createdAt: new Date().toISOString()
+                };
+
+                const existingMatrixIndex = AppState.data.eisenhower[quadrant].findIndex(
+                    t => t.id === matrixTask.id
+                );
+                if (existingMatrixIndex === -1) {
+                    AppState.data.eisenhower[quadrant].push(matrixTask);
+                }
+            }
+        });
+    },
+
+    // Generate events for syncing (similar to generateEvents but with sync-specific fields)
+    generateBidSyncEvents(bid) {
+        const events = [];
+
+        // 1. Bid Due Date - URGENT
+        if (bid.dueDate) {
+            const dueDate = new Date(bid.dueDate);
+            events.push({
+                date: dueDate,
+                type: 'bid-due',
+                title: `BID DUE: ${bid.projectName}`,
+                color: '#ef4444', // Red
+                urgent: true,
+                duration: 1
+            });
+
+            // Internal: Finalize Bid Package - day before at 12 PM
+            const finalizeBid = new Date(dueDate);
+            finalizeBid.setDate(finalizeBid.getDate() - 1);
+            finalizeBid.setHours(12, 0, 0, 0);
+            events.push({
+                date: finalizeBid,
+                type: 'finalize-bid',
+                title: `Finalize Bid Package: ${bid.projectName}`,
+                color: '#f59e0b', // Amber
+                urgent: true,
+                duration: 2
+            });
+
+            // Internal: Secure Bid Bond - 3 days before at 9 AM
+            const bidBond = new Date(dueDate);
+            bidBond.setDate(bidBond.getDate() - 3);
+            bidBond.setHours(9, 0, 0, 0);
+            events.push({
+                date: bidBond,
+                type: 'bid-bond',
+                title: `Secure Bid Bond: ${bid.projectName}`,
+                color: '#f59e0b', // Amber
+                urgent: true,
+                duration: 1
+            });
+        }
+
+        // 2. Pre-Bid Meeting
+        if (bid.preBidDate) {
+            const preBidDate = new Date(bid.preBidDate);
+            events.push({
+                date: preBidDate,
+                type: 'pre-bid',
+                title: `Pre-Bid Meeting: ${bid.projectName}`,
+                color: '#3b82f6', // Blue
+                urgent: true,
+                duration: 2
+            });
+        }
+
+        // 3. RFI Due Date
+        if (bid.rfiDate) {
+            const rfiDate = new Date(bid.rfiDate);
+            events.push({
+                date: rfiDate,
+                type: 'rfi-due',
+                title: `RFI Due: ${bid.projectName}`,
+                color: '#8b5cf6', // Purple
+                urgent: true,
+                duration: 1
+            });
+
+            // Internal: Finalize RFI - day before at 12 PM
+            const finalizeRfi = new Date(rfiDate);
+            finalizeRfi.setDate(finalizeRfi.getDate() - 1);
+            finalizeRfi.setHours(12, 0, 0, 0);
+            events.push({
+                date: finalizeRfi,
+                type: 'finalize-rfi',
+                title: `Finalize RFI: ${bid.projectName}`,
+                color: '#a855f7', // Light purple
+                urgent: true,
+                duration: 2
+            });
+        }
+
+        // 4. Site Visit
+        if (bid.siteVisit) {
+            const siteVisitDate = new Date(bid.siteVisit);
+            events.push({
+                date: siteVisitDate,
+                type: 'site-visit',
+                title: `Site Visit: ${bid.projectName}`,
+                color: '#10b981', // Green
+                urgent: false,
+                duration: 2
+            });
+        }
+
+        return events;
+    },
+
+    // Format date to YYYY-MM-DD for AppState keys
+    formatDateKey(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    },
+
+    // Format time to HH:MM string
+    formatTimeString(date) {
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${hours}:${minutes}`;
     }
 };
 
