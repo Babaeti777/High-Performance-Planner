@@ -9,6 +9,8 @@
     <!-- Google API for Calendar Integration -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
+    <!-- PDF.js for ITB document parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -749,7 +751,7 @@
                     <div class="bid-input-section">
                         <div class="bid-input-tabs">
                             <button class="bid-tab-btn active" data-input="manual">Manual Entry</button>
-                            <button class="bid-tab-btn" data-input="extract">Extract from ITB</button>
+                            <button class="bid-tab-btn" data-input="extract">Upload ITB</button>
                         </div>
 
                         <!-- Manual Entry Form -->
@@ -817,24 +819,39 @@
                             </div>
                         </div>
 
-                        <!-- ITB Text Extraction Form -->
+                        <!-- ITB Document Upload Form -->
                         <div class="bid-input-form" id="bidExtractForm">
-                            <div class="form-group">
-                                <label>Paste ITB Document Text</label>
-                                <textarea id="itbTextArea" class="form-textarea" rows="10" placeholder="Paste the text from your ITB document here...
-
-The system will attempt to extract:
-- Project name
-- Bid due date/time
-- Pre-bid meeting date
-- RFI/Questions deadline
-- Client/Agency name
-
-Tip: Copy the key sections that contain dates and project information."></textarea>
+                            <div class="file-drop-zone" id="fileDropZone">
+                                <div class="drop-zone-content">
+                                    <span class="drop-icon">📄</span>
+                                    <h4>Drop ITB Document Here</h4>
+                                    <p>or click to browse</p>
+                                    <p class="drop-hint">Supports PDF files</p>
+                                </div>
+                                <input type="file" id="itbFileInput" accept=".pdf" hidden>
                             </div>
-                            <div class="bid-form-actions">
-                                <button class="btn btn-primary" id="extractDatesBtn">Extract Dates</button>
-                                <button class="btn btn-secondary" id="clearExtractBtn">Clear</button>
+                            <div class="file-status" id="fileStatus" style="display: none;">
+                                <div class="file-info">
+                                    <span class="file-icon">📄</span>
+                                    <span class="file-name" id="fileName"></span>
+                                    <button class="btn-remove-file" id="removeFileBtn" title="Remove file">×</button>
+                                </div>
+                                <div class="extraction-progress" id="extractionProgress">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" id="progressFill"></div>
+                                    </div>
+                                    <span class="progress-text" id="progressText">Extracting text...</span>
+                                </div>
+                            </div>
+                            <div class="extracted-preview" id="extractedPreview" style="display: none;">
+                                <h4>Extracted Information</h4>
+                                <div class="preview-grid" id="previewGrid">
+                                    <!-- Extracted data preview -->
+                                </div>
+                                <div class="bid-form-actions">
+                                    <button class="btn btn-primary" id="useExtractedBtn">Use This Data</button>
+                                    <button class="btn btn-secondary" id="discardExtractedBtn">Discard</button>
+                                </div>
                             </div>
                         </div>
                     </div>
