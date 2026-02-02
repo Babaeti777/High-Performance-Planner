@@ -97,16 +97,31 @@ const QUADRANT_NAMES = {
     'not-urgent-not-important': 'Eliminate'
 };
 
+// ==================== Calendar & Time Constants ====================
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_START_HOUR = 6;
+const DAY_END_HOUR = 22;
+const DAY_VIEW_PX_PER_HOUR = 60;
+const WEEK_VIEW_PX_PER_HOUR = 50;
+const GANTT_BAR_HEIGHT = 40;
+const MAX_VISIBLE_TASKS_CALENDAR = 3;
+const DEFAULT_START_TIME = '09:00';
+const DEFAULT_DURATION = 1;
+
 // ==================== Utility Functions ====================
 function formatDate(date) {
-    return date.toISOString().split('T')[0];
+    // Use local time to avoid timezone shifting issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 function getWeekStart(date) {
     const d = new Date(date);
     const day = d.getDay();
-    const diff = d.getDate() - day;
-    return new Date(d.setDate(diff));
+    d.setDate(d.getDate() - day);
+    return d;
 }
 
 function getMonthKey(month, year) {
@@ -170,8 +185,8 @@ function createTask(text, options = {}) {
         id: taskId,
         text: text,
         completed: false,
-        duration: options.duration || 1,
-        startTime: options.startTime || '09:00',
+        duration: options.duration || DEFAULT_DURATION,
+        startTime: options.startTime || DEFAULT_START_TIME,
         createdAt: new Date().toISOString()
     };
 
@@ -340,8 +355,9 @@ function initCalendar() {
     });
 
     thisMonthBtn.addEventListener('click', () => {
-        AppState.currentMonth = new Date().getMonth();
-        AppState.currentYear = new Date().getFullYear();
+        const now = new Date();
+        AppState.currentMonth = now.getMonth();
+        AppState.currentYear = now.getFullYear();
         monthSelect.value = AppState.currentMonth;
         yearSelect.value = AppState.currentYear;
         renderCalendar();
@@ -367,8 +383,7 @@ function renderCalendar() {
     // Create header
     const header = document.createElement('div');
     header.className = 'calendar-header';
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    dayNames.forEach(name => {
+    DAY_NAMES.forEach(name => {
         const dayName = document.createElement('div');
         dayName.className = 'calendar-day-name';
         dayName.textContent = name;
@@ -423,7 +438,7 @@ function renderCalendar() {
             taskList.className = 'calendar-day-tasks';
 
             // Show tasks with colors based on quadrant
-            tasks.slice(0, 3).forEach(task => {
+            tasks.slice(0, MAX_VISIBLE_TASKS_CALENDAR).forEach(task => {
                 const taskDiv = document.createElement('div');
                 taskDiv.className = 'calendar-task';
                 if (task.completed) {
@@ -439,10 +454,10 @@ function renderCalendar() {
                 taskList.appendChild(taskDiv);
             });
 
-            if (tasks.length > 3) {
+            if (tasks.length > MAX_VISIBLE_TASKS_CALENDAR) {
                 const more = document.createElement('div');
                 more.className = 'calendar-task-more';
-                more.textContent = `+${tasks.length - 3} more`;
+                more.textContent = `+${tasks.length - MAX_VISIBLE_TASKS_CALENDAR} more`;
                 taskList.appendChild(more);
             }
 
@@ -621,12 +636,16 @@ function initDayWeekPopup() {
 
     // Week navigation in popup
     prevWeekBtn.addEventListener('click', () => {
-        AppState.popupWeekStart.setDate(AppState.popupWeekStart.getDate() - 7);
+        const newStart = new Date(AppState.popupWeekStart);
+        newStart.setDate(newStart.getDate() - 7);
+        AppState.popupWeekStart = newStart;
         renderWeekView();
     });
 
     nextWeekBtn.addEventListener('click', () => {
-        AppState.popupWeekStart.setDate(AppState.popupWeekStart.getDate() + 7);
+        const newStart = new Date(AppState.popupWeekStart);
+        newStart.setDate(newStart.getDate() + 7);
+        AppState.popupWeekStart = newStart;
         renderWeekView();
     });
 
@@ -662,8 +681,12 @@ function generateTimeLabels() {
     const ganttLabels = document.getElementById('ganttTimeLabels');
     const weekTimeColumn = document.getElementById('weekTimeColumn');
 
-    // Generate time slots (6 AM to 10 PM)
-    for (let hour = 6; hour <= 22; hour++) {
+    // Clear existing labels to prevent duplication
+    ganttLabels.innerHTML = '';
+    weekTimeColumn.innerHTML = '';
+
+    // Generate time slots using constants
+    for (let hour = DAY_START_HOUR; hour <= DAY_END_HOUR; hour++) {
         const timeLabel = hour <= 12 ? `${hour === 0 ? 12 : hour}${hour < 12 ? 'AM' : 'PM'}` : `${hour - 12}PM`;
 
         // Gantt chart labels
@@ -698,20 +721,20 @@ function renderDayView(date) {
 
     // Sort tasks by start time
     const sortedTasks = [...tasks].sort((a, b) => {
-        const timeA = a.startTime || '09:00';
-        const timeB = b.startTime || '09:00';
+        const timeA = a.startTime || DEFAULT_START_TIME;
+        const timeB = b.startTime || DEFAULT_START_TIME;
         return timeA.localeCompare(timeB);
     });
 
     // Render Gantt bars
     sortedTasks.forEach((task, index) => {
-        const startTime = task.startTime || '09:00';
-        const duration = task.duration || 1;
+        const startTime = task.startTime || DEFAULT_START_TIME;
+        const duration = task.duration || DEFAULT_DURATION;
         const [startHour, startMin] = startTime.split(':').map(Number);
 
-        // Calculate position (6AM = 0, each hour = 60px)
-        const startOffset = (startHour - 6) * 60 + startMin;
-        const widthPx = duration * 60;
+        // Calculate position using constants
+        const startOffset = (startHour - DAY_START_HOUR) * DAY_VIEW_PX_PER_HOUR + startMin;
+        const widthPx = duration * DAY_VIEW_PX_PER_HOUR;
 
         const ganttBar = document.createElement('div');
         ganttBar.className = 'gantt-bar';
@@ -721,7 +744,7 @@ function renderDayView(date) {
         ganttBar.style.backgroundColor = color;
         ganttBar.style.left = `${startOffset}px`;
         ganttBar.style.width = `${widthPx}px`;
-        ganttBar.style.top = `${index * 40}px`;
+        ganttBar.style.top = `${index * GANTT_BAR_HEIGHT}px`;
 
         ganttBar.innerHTML = `
             <span class="gantt-bar-text">${task.text}</span>
@@ -803,7 +826,6 @@ function renderWeekView() {
 
     weekRangeLabel.textContent = `${AppState.popupWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const today = formatDate(new Date());
 
     for (let i = 0; i < 7; i++) {
@@ -819,7 +841,7 @@ function renderWeekView() {
         const dayHeader = document.createElement('div');
         dayHeader.className = 'week-day-header';
         dayHeader.innerHTML = `
-            <span class="week-day-name">${dayNames[i]}</span>
+            <span class="week-day-name">${DAY_NAMES[i]}</span>
             <span class="week-day-date">${date.getDate()}</span>
         `;
 
@@ -843,7 +865,7 @@ function renderWeekView() {
         tasksGrid.className = 'week-day-tasks-grid';
 
         // Create time slot backgrounds
-        for (let hour = 6; hour <= 22; hour++) {
+        for (let hour = DAY_START_HOUR; hour <= DAY_END_HOUR; hour++) {
             const slot = document.createElement('div');
             slot.className = 'week-time-slot-bg';
             tasksGrid.appendChild(slot);
@@ -852,13 +874,13 @@ function renderWeekView() {
         // Add tasks as positioned blocks
         const tasks = AppState.data.daily[dateKey]?.tasks || [];
         tasks.forEach(task => {
-            const startTime = task.startTime || '09:00';
-            const duration = task.duration || 1;
+            const startTime = task.startTime || DEFAULT_START_TIME;
+            const duration = task.duration || DEFAULT_DURATION;
             const [startHour, startMin] = startTime.split(':').map(Number);
 
-            // Calculate position
-            const topOffset = (startHour - 6) * 50 + (startMin / 60) * 50;
-            const height = duration * 50;
+            // Calculate position using constants
+            const topOffset = (startHour - DAY_START_HOUR) * WEEK_VIEW_PX_PER_HOUR + (startMin / 60) * WEEK_VIEW_PX_PER_HOUR;
+            const height = duration * WEEK_VIEW_PX_PER_HOUR;
 
             const taskBlock = document.createElement('div');
             taskBlock.className = 'week-task-block';
@@ -942,8 +964,8 @@ function initTaskModal() {
         const taskName = document.getElementById('modalTaskName').value.trim();
         const dateKey = document.getElementById('modalTaskDate').value;
         const priority = document.getElementById('modalTaskPriority').value;
-        const duration = parseFloat(document.getElementById('modalTaskDuration').value) || 1;
-        const startTime = document.getElementById('modalTaskStartTime').value || '09:00';
+        const duration = parseFloat(document.getElementById('modalTaskDuration').value) || DEFAULT_DURATION;
+        const startTime = document.getElementById('modalTaskStartTime').value || DEFAULT_START_TIME;
 
         if (!taskName) {
             document.getElementById('modalTaskName').focus();
@@ -1041,7 +1063,7 @@ function initTimer() {
 }
 
 function startTaskTimer(task, dateKey = null) {
-    const durationHours = task.duration || 1;
+    const durationHours = task.duration || DEFAULT_DURATION;
     const durationSeconds = Math.floor(durationHours * 3600);
 
     TimerState.taskName = task.text;
@@ -1292,7 +1314,7 @@ function initEisenhowerMatrix() {
             const taskText = input.value.trim();
             if (!taskText) return;
 
-            const duration = parseFloat(durationInput.value) || 1;
+            const duration = parseFloat(durationInput.value) || DEFAULT_DURATION;
             const scheduledDate = scheduleInput.value || null;
 
             const newTask = {
@@ -1370,8 +1392,8 @@ function sortQuadrantTasks(tasks) {
         }
 
         // Fourth priority: shorter duration tasks on top (longer in middle/bottom)
-        const aDuration = a.duration || 1;
-        const bDuration = b.duration || 1;
+        const aDuration = a.duration || DEFAULT_DURATION;
+        const bDuration = b.duration || DEFAULT_DURATION;
 
         return aDuration - bDuration;
     });
@@ -2029,11 +2051,12 @@ async function syncToGoogleCalendar() {
             for (const task of tasks) {
                 if (!task.scheduledDate || task.googleEventId) continue;
 
-                const startTime = task.startTime || '09:00';
+                const startTime = task.startTime || DEFAULT_START_TIME;
                 const startDate = new Date(task.scheduledDate + 'T' + startTime + ':00');
                 const endDate = new Date(startDate);
-                endDate.setHours(startDate.getHours() + Math.floor(task.duration || 1));
-                endDate.setMinutes(startDate.getMinutes() + ((task.duration || 1) % 1) * 60);
+                const duration = task.duration || DEFAULT_DURATION;
+                endDate.setHours(startDate.getHours() + Math.floor(duration));
+                endDate.setMinutes(startDate.getMinutes() + (duration % 1) * 60);
 
                 const event = {
                     summary: task.text,
@@ -2427,7 +2450,7 @@ function renderVerticalTimeline() {
         // Add tasks that fall within this hour
         scheduledTasks.forEach(task => {
             const [tHour] = task.startTime.split(':').map(Number);
-            const tEndHour = tHour + (task.duration || 1);
+            const tEndHour = tHour + (task.duration || DEFAULT_DURATION);
             if (hour >= tHour && hour < tEndHour) {
                 const block = document.createElement('div');
                 block.className = 'v-timeline-block';
@@ -2812,7 +2835,7 @@ function renderTimelineTasks() {
     scheduledTasks.forEach(task => {
         const [hours, mins] = task.startTime.split(':').map(Number);
         const taskStart = hours * 60 + mins;
-        const taskEnd = taskStart + (task.duration || 1) * 60;
+        const taskEnd = taskStart + (task.duration || DEFAULT_DURATION) * 60;
 
         if (taskEnd <= startHour * 60 || taskStart >= endHour * 60) return;
 
@@ -2886,7 +2909,7 @@ function updateCurrentActivity() {
 
         const [hours, mins] = task.startTime.split(':').map(Number);
         const taskStart = hours * 60 + mins;
-        const taskEnd = taskStart + (task.duration || 1) * 60;
+        const taskEnd = taskStart + (task.duration || DEFAULT_DURATION) * 60;
 
         if (currentMinutes >= taskStart && currentMinutes < taskEnd) {
             activityName.textContent = task.text;
