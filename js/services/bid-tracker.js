@@ -363,87 +363,187 @@ const BidTracker = {
             rfiDate: ''
         };
 
-        // Normalize text
-        const normalizedText = text.replace(/\s+/g, ' ');
+        // Normalize text - preserve some structure
+        const normalizedText = text.replace(/\s+/g, ' ').trim();
+        const lines = text.split(/\n/).map(l => l.trim()).filter(l => l);
 
-        // Extract project name patterns
+        // ==================== PROJECT NAME EXTRACTION ====================
+        // Priority order: specific labeled fields first
         const projectPatterns = [
-            /(?:project\s*(?:name|title)?|title|subject|re:|regarding)[:\s]+["']?([^"'\n]{10,100}?)["']?(?:\n|$|\.)/i,
-            /(?:ITB|RFP|RFQ|BID|invitation\s+(?:to|for)\s+bid)[:\s#-]*(?:\d*[:\s]+)?["']?([^"'\n]{10,100}?)["']?(?:\n|$)/i,
-            /(?:for\s+the\s+construction\s+of|project\s*:)[:\s]*([^,\n]{10,100})/i
+            // Maryland DNR format: "DNR Project Title: Project Name"
+            /(?:DNR\s+)?Project\s+Title[:\s]+([A-Z][^$\n]{5,100})/i,
+            // Standard format: "Project Name: Something"
+            /Project\s*(?:Name|Title)[:\s]+([A-Z][^$\n]{5,100})/i,
+            // "RE:" or "Subject:" format
+            /(?:RE|Subject)[:\s]+([A-Z][^$\n]{10,100})/i,
+            // ITB/RFP for format: "ITB for Project Name"
+            /(?:ITB|RFP|RFQ|IFB)\s+(?:for|#|No\.?)?[:\s]+([A-Z][^$\n]{10,100})/i,
+            // Construction of format
+            /(?:for\s+the\s+)?(?:construction|renovation|repair|improvement)\s+of[:\s]+([A-Z][^$,\n]{10,100})/i
         ];
+
         for (const pattern of projectPatterns) {
-            const match = text.match(pattern);
-            if (match && match[1].trim().length > 5) {
-                result.projectName = match[1].trim().substring(0, 100);
-                break;
+            const match = normalizedText.match(pattern);
+            if (match && match[1]) {
+                let name = match[1].trim();
+                // Clean up: remove trailing location info if too long
+                if (name.length > 80) {
+                    const locMatch = name.match(/^(.{20,80}?)(?:\s+at\s+|\s+located\s+|\s+-\s+)/i);
+                    if (locMatch) name = locMatch[1];
+                }
+                // Exclude common false positives
+                if (!name.match(/^(classification|solicitation|this\s+|for\s+the\s+purpose)/i)) {
+                    result.projectName = name.substring(0, 100);
+                    break;
+                }
             }
         }
 
-        // Extract bid number
+        // ==================== BID NUMBER EXTRACTION ====================
         const bidNumPatterns = [
-            /(?:ITB|RFP|RFQ|BID|solicitation|contract|project)\s*(?:number|no\.?|#)?[:\s#-]*([A-Z]*\d{2,}[-\d\/A-Z]*)/i,
-            /(?:number|no\.?|#)[:\s]*([A-Z]*\d{2,}[-\d\/A-Z]*)/i
+            // Solicitation #: BPM054684
+            /Solicitation\s*[#:]\s*([A-Z0-9][-A-Z0-9]{4,20})/i,
+            // ITB/RFP/RFQ #/No.: Number
+            /(?:ITB|RFP|RFQ|IFB|BID)\s*(?:#|No\.?|Number)?[:\s]+([A-Z0-9][-A-Z0-9]{4,20})/i,
+            // Contract/Project Number
+            /(?:Contract|Project)\s*(?:#|No\.?|Number)?[:\s]+([A-Z0-9][-A-Z0-9\/]{4,25})/i,
+            // Generic "Number:" or "#:"
+            /(?:Bid\s+)?(?:#|Number|No\.)[:\s]+([A-Z0-9][-A-Z0-9]{4,20})/i
         ];
+
         for (const pattern of bidNumPatterns) {
-            const match = text.match(pattern);
-            if (match) {
+            const match = normalizedText.match(pattern);
+            if (match && match[1]) {
                 result.bidNumber = match[1].trim();
                 break;
             }
         }
 
-        // Extract client/agency
+        // ==================== CLIENT/AGENCY EXTRACTION ====================
         const clientPatterns = [
-            /(?:agency|owner|client|department|(?:city|county|state|town)\s+of)[:\s]+([A-Z][^,\n]{3,50})/i,
-            /(?:issued\s+by|from|prepared\s+(?:by|for))[:\s]+([A-Z][^,\n]{3,50})/i,
-            /(?:the\s+)?((?:city|county|state|town)\s+of\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i
+            // DNR format - extract Maryland DNR
+            /DNR\s+Project\s+(?:#|Title)/i,
+            // "Owner:" or "Agency:" labeled
+            /(?:Owner|Agency|Client)[:\s]+([A-Z][A-Za-z\s&]{3,50}?)(?:\s+\(|\s*$|\s+Project)/i,
+            // Department of X
+            /((?:Department|Dept\.?)\s+of\s+[A-Z][A-Za-z\s&]{3,40})/i,
+            // City/County/State of X
+            /((?:City|County|State|Town|Village)\s+of\s+[A-Z][A-Za-z\s]{3,30})/i,
+            // X County/City (reverse format)
+            /([A-Z][A-Za-z]+\s+(?:County|City|Township|Borough|District))/i,
+            // School District
+            /([A-Z][A-Za-z\s]+\s+(?:School\s+District|Public\s+Schools|ISD))/i,
+            // University/College
+            /((?:University|College)\s+of\s+[A-Z][A-Za-z\s]+)/i
         ];
-        for (const pattern of clientPatterns) {
-            const match = text.match(pattern);
-            if (match) {
-                result.client = match[1].trim().substring(0, 100);
-                break;
+
+        // Check for DNR specifically
+        if (normalizedText.match(/DNR\s+Project/i)) {
+            result.client = 'Maryland DNR';
+        } else {
+            for (const pattern of clientPatterns) {
+                const match = normalizedText.match(pattern);
+                if (match && match[1]) {
+                    let client = match[1].trim();
+                    // Exclude common false positives
+                    if (!client.match(/^(of\s+|the\s+|for\s+|general\s+services)/i)) {
+                        result.client = client.substring(0, 100);
+                        break;
+                    }
+                }
             }
         }
 
-        // Date extraction helper
-        const extractDateTime = (patterns) => {
-            for (const pattern of patterns) {
-                const match = normalizedText.match(pattern);
-                if (match) {
-                    return this.parseExtractedDate(match[0]);
+        // ==================== BID DUE DATE EXTRACTION ====================
+        // Look for specific bid due date patterns
+        const dueDatePatterns = [
+            // "Bid Due Date: Day, Month DD, YYYY at HH:MM PM"
+            /Bid\s+Due\s+Date[:\s]+(?:\w+day,?\s+)?(\w+\s+\d{1,2},?\s+\d{4})\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i,
+            // "Bids due: Month DD, YYYY"
+            /Bids?\s+(?:are\s+)?due[:\s]+(?:\w+day,?\s+)?(\w+\s+\d{1,2},?\s+\d{4})(?:\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?))?/i,
+            // "Due Date: MM/DD/YYYY"
+            /(?:Bid\s+)?Due\s+Date[:\s]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})(?:\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?))?/i,
+            // "Proposals due by Month DD, YYYY"
+            /(?:Bid|Proposal)s?\s+(?:must\s+be\s+)?(?:submitted|received|due)\s+(?:by|on)[:\s]+(?:\w+day,?\s+)?(\w+\s+\d{1,2},?\s+\d{4})(?:\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?))?/i,
+            // "Deadline: Month DD, YYYY at HH:MM"
+            /(?:Submission\s+)?Deadline[:\s]+(?:\w+day,?\s+)?(\w+\s+\d{1,2},?\s+\d{4})(?:\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?))?/i
+        ];
+
+        for (const pattern of dueDatePatterns) {
+            const match = normalizedText.match(pattern);
+            if (match && match[1]) {
+                const dateStr = match[1] + (match[2] ? ' ' + match[2] : '');
+                const parsed = this.parseExtractedDate(dateStr);
+                if (parsed && this.isReasonableDate(parsed)) {
+                    result.dueDate = parsed;
+                    break;
                 }
             }
-            return '';
-        };
+        }
 
-        // Bid due date patterns
-        const dueDatePatterns = [
-            /(?:bid|proposal|response)s?\s+(?:due|deadline|must\s+be\s+(?:received|submitted))[:\s]+[^,\n]*?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})(?:\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?))?\b/i,
-            /(?:due\s+date|deadline|submit\s+by|submission\s+deadline)[:\s]+[^,\n]*?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})(?:\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?))?\b/i,
-            /(\w+\s+\d{1,2},?\s+\d{4})(?:\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?))?[^,\n]*(?:bid|proposal|due)/i,
-            /(?:bids?\s+(?:will\s+be\s+)?(?:received|opened|due))[^,\n]*?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})(?:\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?))?\b/i
-        ];
-        result.dueDate = extractDateTime(dueDatePatterns);
-
-        // Pre-bid meeting patterns
+        // ==================== PRE-BID MEETING EXTRACTION ====================
+        // Look specifically for pre-bid conference/meeting patterns
         const preBidPatterns = [
-            /(?:pre-?bid|mandatory)\s+(?:meeting|conference)[:\s]+[^,\n]*?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})(?:\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?))?\b/i,
-            /(\w+\s+\d{1,2},?\s+\d{4})(?:\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?))?[^,\n]*(?:pre-?bid)/i,
-            /(?:pre-?bid|site\s+visit)[^,\n]*?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})(?:\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?))?\b/i
+            // "Pre-Bid Conference will be held on Day, Month DD, YYYY, at HH:MM"
+            /Pre-?Bid\s+(?:Conference|Meeting)\s+(?:will\s+be\s+held|is\s+scheduled)\s+(?:on|for)[:\s]+(?:\w+day,?\s+)?(\w+\s+\d{1,2},?\s+\d{4}),?\s+(?:at|@)\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i,
+            // "Pre-Bid Meeting: Month DD, YYYY at HH:MM"
+            /Pre-?Bid\s+(?:Conference|Meeting)[:\s]+(?:\w+day,?\s+)?(\w+\s+\d{1,2},?\s+\d{4})(?:\s+(?:at|@)\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?))?/i,
+            // "Mandatory Pre-Bid: MM/DD/YYYY"
+            /(?:Mandatory\s+)?Pre-?Bid[:\s]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})(?:\s+(?:at|@)\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?))?/i
         ];
-        result.preBidDate = extractDateTime(preBidPatterns);
 
-        // RFI/Questions due patterns
+        for (const pattern of preBidPatterns) {
+            const match = normalizedText.match(pattern);
+            if (match && match[1]) {
+                const dateStr = match[1] + (match[2] ? ' ' + match[2] : '');
+                const parsed = this.parseExtractedDate(dateStr);
+                if (parsed && this.isReasonableDate(parsed)) {
+                    result.preBidDate = parsed;
+                    break;
+                }
+            }
+        }
+
+        // ==================== RFI/QUESTIONS DUE EXTRACTION ====================
+        // Look specifically for RFI/Questions deadline patterns
         const rfiPatterns = [
-            /(?:questions?|RFI|inquir(?:y|ies))\s+(?:due|deadline|must\s+be\s+(?:received|submitted))[:\s]+[^,\n]*?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})(?:\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?))?\b/i,
-            /(\w+\s+\d{1,2},?\s+\d{4})(?:\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?))?[^,\n]*(?:question|RFI|inquir)/i,
-            /(?:last\s+day\s+(?:for|to\s+submit)\s+questions?)[^,\n]*?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i
+            // "Questions due by Month DD, YYYY"
+            /Questions?\s+(?:are\s+)?(?:due|must\s+be\s+(?:submitted|received))\s+(?:by|on)[:\s]+(?:\w+day,?\s+)?(\w+\s+\d{1,2},?\s+\d{4})(?:\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?))?/i,
+            // "RFI Due Date: Month DD, YYYY"
+            /RFI\s+(?:Due\s+)?(?:Date)?[:\s]+(?:\w+day,?\s+)?(\w+\s+\d{1,2},?\s+\d{4})(?:\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?))?/i,
+            // "Last day for questions: MM/DD/YYYY"
+            /(?:Last\s+day|Deadline)\s+(?:for|to\s+submit)\s+(?:questions?|RFI|inquir)[:\s]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})(?:\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?))?/i,
+            // "Inquiries due: Month DD, YYYY"
+            /Inquir(?:y|ies)\s+(?:Due|Deadline)[:\s]+(?:\w+day,?\s+)?(\w+\s+\d{1,2},?\s+\d{4})(?:\s+(?:at|by|@)\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?))?/i
         ];
-        result.rfiDate = extractDateTime(rfiPatterns);
+
+        for (const pattern of rfiPatterns) {
+            const match = normalizedText.match(pattern);
+            if (match && match[1]) {
+                const dateStr = match[1] + (match[2] ? ' ' + match[2] : '');
+                const parsed = this.parseExtractedDate(dateStr);
+                if (parsed && this.isReasonableDate(parsed)) {
+                    result.rfiDate = parsed;
+                    break;
+                }
+            }
+        }
 
         return result;
+    },
+
+    // Check if a parsed date is reasonable (not in the past by more than a week, not too far in future)
+    isReasonableDate(dateStr) {
+        if (!dateStr) return false;
+        try {
+            const date = new Date(dateStr);
+            const now = new Date();
+            const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            const twoYearsFromNow = new Date(now.getTime() + 2 * 365 * 24 * 60 * 60 * 1000);
+            return date >= oneWeekAgo && date <= twoYearsFromNow;
+        } catch (e) {
+            return false;
+        }
     },
 
     // Parse extracted date string to datetime-local format
@@ -454,45 +554,55 @@ const BidTracker = {
             // Clean the string
             let cleaned = dateStr.replace(/[^\d\/\-:\sAaPpMm,\w]/g, ' ').trim();
 
-            // Try to extract date and time components
-            let dateMatch = cleaned.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
-            let timeMatch = cleaned.match(/(\d{1,2}):(\d{2})\s*(am|pm|AM|PM)?/i);
+            let month, day, year;
 
-            // Also try named month format
-            if (!dateMatch) {
-                const monthNames = ['january', 'february', 'march', 'april', 'may', 'june',
-                    'july', 'august', 'september', 'october', 'november', 'december'];
-                const namedMatch = cleaned.match(/(\w+)\s+(\d{1,2}),?\s+(\d{4})/i);
-                if (namedMatch) {
-                    const monthIdx = monthNames.findIndex(m => m.startsWith(namedMatch[1].toLowerCase()));
-                    if (monthIdx !== -1) {
-                        dateMatch = [null, namedMatch[2], String(monthIdx + 1), namedMatch[3]];
+            // First try named month format: "February 13, 2026" or "January 26, 2026"
+            const monthNames = ['january', 'february', 'march', 'april', 'may', 'june',
+                'july', 'august', 'september', 'october', 'november', 'december'];
+            const namedMatch = cleaned.match(/([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})/i);
+
+            if (namedMatch) {
+                const monthIdx = monthNames.findIndex(m => m.startsWith(namedMatch[1].toLowerCase()));
+                if (monthIdx !== -1) {
+                    month = monthIdx + 1;
+                    day = parseInt(namedMatch[2]);
+                    year = parseInt(namedMatch[3]);
+                }
+            }
+
+            // Try numeric format: MM/DD/YYYY or MM-DD-YYYY
+            if (!month) {
+                const numericMatch = cleaned.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+                if (numericMatch) {
+                    month = parseInt(numericMatch[1]);
+                    day = parseInt(numericMatch[2]);
+                    year = parseInt(numericMatch[3]);
+
+                    // Swap if it looks like day/month format (European)
+                    if (month > 12 && day <= 12) {
+                        [month, day] = [day, month];
+                    }
+
+                    // Handle 2-digit year
+                    if (year < 100) {
+                        year += year < 50 ? 2000 : 1900;
                     }
                 }
             }
 
-            if (!dateMatch) return '';
+            if (!month || !day || !year) return '';
 
-            let month = parseInt(dateMatch[1]);
-            let day = parseInt(dateMatch[2]);
-            let year = parseInt(dateMatch[3]);
-
-            // Swap if it looks like day/month format
-            if (month > 12 && day <= 12) {
-                [month, day] = [day, month];
-            }
-
-            // Handle 2-digit year
-            if (year < 100) {
-                year += year < 50 ? 2000 : 1900;
-            }
+            // Validate date components
+            if (month < 1 || month > 12 || day < 1 || day > 31) return '';
 
             // Format date
             const dateFormatted = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-            // Format time
+            // Extract time
+            const timeMatch = cleaned.match(/(\d{1,2}):(\d{2})\s*(am|pm|AM|PM)?/i);
             let hour = 14; // Default to 2 PM
             let minute = 0;
+
             if (timeMatch) {
                 hour = parseInt(timeMatch[1]);
                 minute = parseInt(timeMatch[2]);
