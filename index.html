@@ -140,6 +140,10 @@
                             <span>⚙️</span>
                             <span>Manage Routines</span>
                         </button>
+                        <button class="quick-action-btn ai-btn" id="smartScheduleBtn">
+                            <span>🤖</span>
+                            <span>AI Schedule</span>
+                        </button>
                     </div>
                 </div>
 
@@ -1135,6 +1139,42 @@
                 </div>
             </div>
         </aside>
+    </div>
+
+    <!-- Smart Schedule Modal -->
+    <div class="modal hidden" id="smartScheduleModal">
+        <div class="modal-content smart-schedule-modal">
+            <div class="modal-header">
+                <h3>🤖 AI Smart Scheduler</h3>
+                <button class="close-btn" id="closeSmartSchedule">&times;</button>
+            </div>
+            <div class="modal-body" id="smartScheduleBody">
+                <div class="smart-schedule-intro">
+                    <p>AI will analyze your tasks, routines, and workload to create an optimal schedule.</p>
+                    <div class="schedule-options">
+                        <div class="option-group">
+                            <label>Schedule for:</label>
+                            <select id="scheduleDays">
+                                <option value="1">Today only</option>
+                                <option value="3">Next 3 days</option>
+                                <option value="7" selected>Next 7 days</option>
+                            </select>
+                        </div>
+                        <div class="option-group">
+                            <label>Work hours:</label>
+                            <input type="time" id="workStartTime" value="06:00"> to
+                            <input type="time" id="workEndTime" value="22:00">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" id="generateScheduleBtn">
+                        <span>✨</span> Generate Smart Schedule
+                    </button>
+                </div>
+                <div class="smart-schedule-result hidden" id="scheduleResult">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="js/services/ai-service.js"></script>
