@@ -97,16 +97,31 @@ const QUADRANT_NAMES = {
     'not-urgent-not-important': 'Eliminate'
 };
 
+// ==================== Calendar & Time Constants ====================
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_START_HOUR = 6;
+const DAY_END_HOUR = 22;
+const DAY_VIEW_PX_PER_HOUR = 60;
+const WEEK_VIEW_PX_PER_HOUR = 50;
+const GANTT_BAR_HEIGHT = 40;
+const MAX_VISIBLE_TASKS_CALENDAR = 3;
+const DEFAULT_START_TIME = '09:00';
+const DEFAULT_DURATION = 1;
+
 // ==================== Utility Functions ====================
 function formatDate(date) {
-    return date.toISOString().split('T')[0];
+    // Use local time to avoid timezone shifting issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 function getWeekStart(date) {
     const d = new Date(date);
     const day = d.getDay();
-    const diff = d.getDate() - day;
-    return new Date(d.setDate(diff));
+    d.setDate(d.getDate() - day);
+    return d;
 }
 
 function getMonthKey(month, year) {
@@ -170,8 +185,8 @@ function createTask(text, options = {}) {
         id: taskId,
         text: text,
         completed: false,
-        duration: options.duration || 1,
-        startTime: options.startTime || '09:00',
+        duration: options.duration || DEFAULT_DURATION,
+        startTime: options.startTime || DEFAULT_START_TIME,
         createdAt: new Date().toISOString()
     };
 
@@ -340,8 +355,9 @@ function initCalendar() {
     });
 
     thisMonthBtn.addEventListener('click', () => {
-        AppState.currentMonth = new Date().getMonth();
-        AppState.currentYear = new Date().getFullYear();
+        const now = new Date();
+        AppState.currentMonth = now.getMonth();
+        AppState.currentYear = now.getFullYear();
         monthSelect.value = AppState.currentMonth;
         yearSelect.value = AppState.currentYear;
         renderCalendar();
@@ -367,8 +383,7 @@ function renderCalendar() {
     // Create header
     const header = document.createElement('div');
     header.className = 'calendar-header';
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    dayNames.forEach(name => {
+    DAY_NAMES.forEach(name => {
         const dayName = document.createElement('div');
         dayName.className = 'calendar-day-name';
         dayName.textContent = name;
@@ -423,7 +438,7 @@ function renderCalendar() {
             taskList.className = 'calendar-day-tasks';
 
             // Show tasks with colors based on quadrant
-            tasks.slice(0, 3).forEach(task => {
+            tasks.slice(0, MAX_VISIBLE_TASKS_CALENDAR).forEach(task => {
                 const taskDiv = document.createElement('div');
                 taskDiv.className = 'calendar-task';
                 if (task.completed) {
@@ -439,10 +454,10 @@ function renderCalendar() {
                 taskList.appendChild(taskDiv);
             });
 
-            if (tasks.length > 3) {
+            if (tasks.length > MAX_VISIBLE_TASKS_CALENDAR) {
                 const more = document.createElement('div');
                 more.className = 'calendar-task-more';
-                more.textContent = `+${tasks.length - 3} more`;
+                more.textContent = `+${tasks.length - MAX_VISIBLE_TASKS_CALENDAR} more`;
                 taskList.appendChild(more);
             }
 
@@ -621,12 +636,16 @@ function initDayWeekPopup() {
 
     // Week navigation in popup
     prevWeekBtn.addEventListener('click', () => {
-        AppState.popupWeekStart.setDate(AppState.popupWeekStart.getDate() - 7);
+        const newStart = new Date(AppState.popupWeekStart);
+        newStart.setDate(newStart.getDate() - 7);
+        AppState.popupWeekStart = newStart;
         renderWeekView();
     });
 
     nextWeekBtn.addEventListener('click', () => {
-        AppState.popupWeekStart.setDate(AppState.popupWeekStart.getDate() + 7);
+        const newStart = new Date(AppState.popupWeekStart);
+        newStart.setDate(newStart.getDate() + 7);
+        AppState.popupWeekStart = newStart;
         renderWeekView();
     });
 
@@ -662,8 +681,12 @@ function generateTimeLabels() {
     const ganttLabels = document.getElementById('ganttTimeLabels');
     const weekTimeColumn = document.getElementById('weekTimeColumn');
 
-    // Generate time slots (6 AM to 10 PM)
-    for (let hour = 6; hour <= 22; hour++) {
+    // Clear existing labels to prevent duplication
+    ganttLabels.innerHTML = '';
+    weekTimeColumn.innerHTML = '';
+
+    // Generate time slots using constants
+    for (let hour = DAY_START_HOUR; hour <= DAY_END_HOUR; hour++) {
         const timeLabel = hour <= 12 ? `${hour === 0 ? 12 : hour}${hour < 12 ? 'AM' : 'PM'}` : `${hour - 12}PM`;
 
         // Gantt chart labels
@@ -698,20 +721,20 @@ function renderDayView(date) {
 
     // Sort tasks by start time
     const sortedTasks = [...tasks].sort((a, b) => {
-        const timeA = a.startTime || '09:00';
-        const timeB = b.startTime || '09:00';
+        const timeA = a.startTime || DEFAULT_START_TIME;
+        const timeB = b.startTime || DEFAULT_START_TIME;
         return timeA.localeCompare(timeB);
     });
 
     // Render Gantt bars
     sortedTasks.forEach((task, index) => {
-        const startTime = task.startTime || '09:00';
-        const duration = task.duration || 1;
+        const startTime = task.startTime || DEFAULT_START_TIME;
+        const duration = task.duration || DEFAULT_DURATION;
         const [startHour, startMin] = startTime.split(':').map(Number);
 
-        // Calculate position (6AM = 0, each hour = 60px)
-        const startOffset = (startHour - 6) * 60 + startMin;
-        const widthPx = duration * 60;
+        // Calculate position using constants
+        const startOffset = (startHour - DAY_START_HOUR) * DAY_VIEW_PX_PER_HOUR + startMin;
+        const widthPx = duration * DAY_VIEW_PX_PER_HOUR;
 
         const ganttBar = document.createElement('div');
         ganttBar.className = 'gantt-bar';
@@ -721,7 +744,7 @@ function renderDayView(date) {
         ganttBar.style.backgroundColor = color;
         ganttBar.style.left = `${startOffset}px`;
         ganttBar.style.width = `${widthPx}px`;
-        ganttBar.style.top = `${index * 40}px`;
+        ganttBar.style.top = `${index * GANTT_BAR_HEIGHT}px`;
 
         ganttBar.innerHTML = `
             <span class="gantt-bar-text">${task.text}</span>
@@ -803,7 +826,6 @@ function renderWeekView() {
 
     weekRangeLabel.textContent = `${AppState.popupWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const today = formatDate(new Date());
 
     for (let i = 0; i < 7; i++) {
@@ -819,7 +841,7 @@ function renderWeekView() {
         const dayHeader = document.createElement('div');
         dayHeader.className = 'week-day-header';
         dayHeader.innerHTML = `
-            <span class="week-day-name">${dayNames[i]}</span>
+            <span class="week-day-name">${DAY_NAMES[i]}</span>
             <span class="week-day-date">${date.getDate()}</span>
         `;
 
@@ -842,23 +864,68 @@ function renderWeekView() {
         const tasksGrid = document.createElement('div');
         tasksGrid.className = 'week-day-tasks-grid';
 
-        // Create time slot backgrounds
-        for (let hour = 6; hour <= 22; hour++) {
+        // Create time slot backgrounds with click-to-add functionality
+        for (let hour = DAY_START_HOUR; hour <= DAY_END_HOUR; hour++) {
             const slot = document.createElement('div');
             slot.className = 'week-time-slot-bg';
+            slot.title = `Click to add task at ${hour > 12 ? hour - 12 : hour}${hour >= 12 ? 'PM' : 'AM'}`;
+
+            // Quick-add on click
+            slot.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const clickedHour = hour;
+                openTaskModalWithTime(date, `${String(clickedHour).padStart(2, '0')}:00`);
+            });
+
             tasksGrid.appendChild(slot);
         }
+
+        // Add routines for this day
+        const dayOfWeek = date.getDay(); // 0 = Sunday
+        const dayRoutines = RoutinesState.routines.filter(r => r.days && r.days.includes(dayOfWeek));
+
+        dayRoutines.forEach(routine => {
+            const [startHour, startMin] = routine.startTime.split(':').map(Number);
+            const duration = routine.duration || DEFAULT_DURATION;
+
+            // Calculate position
+            const topOffset = (startHour - DAY_START_HOUR) * WEEK_VIEW_PX_PER_HOUR + (startMin / 60) * WEEK_VIEW_PX_PER_HOUR;
+            const height = duration * WEEK_VIEW_PX_PER_HOUR;
+
+            // Skip if outside visible time range
+            if (startHour < DAY_START_HOUR || startHour >= DAY_END_HOUR) return;
+
+            const routineBlock = document.createElement('div');
+            routineBlock.className = 'week-task-block week-routine-block';
+            routineBlock.style.backgroundColor = routine.color || '#10b981';
+            routineBlock.style.top = `${topOffset}px`;
+            routineBlock.style.height = `${Math.max(height, 25)}px`;
+            routineBlock.style.opacity = '0.7';
+            routineBlock.style.borderStyle = 'dashed';
+
+            routineBlock.innerHTML = `
+                <span class="week-task-text">${routine.emoji || ''} ${routine.name}</span>
+                <span class="week-task-duration">${duration}h</span>
+            `;
+
+            routineBlock.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Don't open task view for routines
+            });
+
+            tasksGrid.appendChild(routineBlock);
+        });
 
         // Add tasks as positioned blocks
         const tasks = AppState.data.daily[dateKey]?.tasks || [];
         tasks.forEach(task => {
-            const startTime = task.startTime || '09:00';
-            const duration = task.duration || 1;
+            const startTime = task.startTime || DEFAULT_START_TIME;
+            const duration = task.duration || DEFAULT_DURATION;
             const [startHour, startMin] = startTime.split(':').map(Number);
 
-            // Calculate position
-            const topOffset = (startHour - 6) * 50 + (startMin / 60) * 50;
-            const height = duration * 50;
+            // Calculate position using constants
+            const topOffset = (startHour - DAY_START_HOUR) * WEEK_VIEW_PX_PER_HOUR + (startMin / 60) * WEEK_VIEW_PX_PER_HOUR;
+            const height = duration * WEEK_VIEW_PX_PER_HOUR;
 
             const taskBlock = document.createElement('div');
             taskBlock.className = 'week-task-block';
@@ -942,8 +1009,8 @@ function initTaskModal() {
         const taskName = document.getElementById('modalTaskName').value.trim();
         const dateKey = document.getElementById('modalTaskDate').value;
         const priority = document.getElementById('modalTaskPriority').value;
-        const duration = parseFloat(document.getElementById('modalTaskDuration').value) || 1;
-        const startTime = document.getElementById('modalTaskStartTime').value || '09:00';
+        const duration = parseFloat(document.getElementById('modalTaskDuration').value) || DEFAULT_DURATION;
+        const startTime = document.getElementById('modalTaskStartTime').value || DEFAULT_START_TIME;
 
         if (!taskName) {
             document.getElementById('modalTaskName').focus();
@@ -977,6 +1044,24 @@ function openTaskModal(date) {
     const dateInput = document.getElementById('modalTaskDate');
 
     dateInput.value = formatDate(date);
+    modal.classList.remove('hidden');
+    document.getElementById('modalTaskName').focus();
+}
+
+// Open task modal with pre-filled time (for quick-add from time slots)
+function openTaskModalWithTime(date, startTime) {
+    const modal = document.getElementById('taskModal');
+    const dateInput = document.getElementById('modalTaskDate');
+    const timeInput = document.getElementById('modalTaskStartTime');
+
+    // Close day/week modal if open
+    const dayWeekModal = document.getElementById('dayWeekModal');
+    if (dayWeekModal) {
+        dayWeekModal.classList.add('hidden');
+    }
+
+    dateInput.value = formatDate(date);
+    timeInput.value = startTime;
     modal.classList.remove('hidden');
     document.getElementById('modalTaskName').focus();
 }
@@ -1041,7 +1126,7 @@ function initTimer() {
 }
 
 function startTaskTimer(task, dateKey = null) {
-    const durationHours = task.duration || 1;
+    const durationHours = task.duration || DEFAULT_DURATION;
     const durationSeconds = Math.floor(durationHours * 3600);
 
     TimerState.taskName = task.text;
@@ -1292,7 +1377,7 @@ function initEisenhowerMatrix() {
             const taskText = input.value.trim();
             if (!taskText) return;
 
-            const duration = parseFloat(durationInput.value) || 1;
+            const duration = parseFloat(durationInput.value) || DEFAULT_DURATION;
             const scheduledDate = scheduleInput.value || null;
 
             const newTask = {
@@ -1370,8 +1455,8 @@ function sortQuadrantTasks(tasks) {
         }
 
         // Fourth priority: shorter duration tasks on top (longer in middle/bottom)
-        const aDuration = a.duration || 1;
-        const bDuration = b.duration || 1;
+        const aDuration = a.duration || DEFAULT_DURATION;
+        const bDuration = b.duration || DEFAULT_DURATION;
 
         return aDuration - bDuration;
     });
@@ -1754,6 +1839,7 @@ function initSidebarToggle() {
     const mobileMenuToggle = document.getElementById('mobileMenuToggle');
     const sidebarOverlay = document.getElementById('sidebarOverlay');
     const sidebarClose = document.getElementById('sidebarClose');
+    const sidebarCollapseBtn = document.getElementById('sidebarCollapseBtn');
     const sidebar = document.getElementById('sidebar');
 
     function openSidebar() {
@@ -1793,6 +1879,25 @@ function initSidebarToggle() {
             }
         });
     });
+
+    // Collapse sidebar toggle (desktop)
+    if (sidebarCollapseBtn) {
+        // Load saved collapse state
+        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (isCollapsed) {
+            sidebar.classList.add('collapsed');
+            sidebarCollapseBtn.textContent = '»';
+            sidebarCollapseBtn.title = 'Expand sidebar';
+        }
+
+        sidebarCollapseBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            const collapsed = sidebar.classList.contains('collapsed');
+            localStorage.setItem('sidebarCollapsed', collapsed);
+            sidebarCollapseBtn.textContent = collapsed ? '»' : '«';
+            sidebarCollapseBtn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+        });
+    }
 }
 
 // ==================== Google Calendar Integration ====================
@@ -2029,11 +2134,12 @@ async function syncToGoogleCalendar() {
             for (const task of tasks) {
                 if (!task.scheduledDate || task.googleEventId) continue;
 
-                const startTime = task.startTime || '09:00';
+                const startTime = task.startTime || DEFAULT_START_TIME;
                 const startDate = new Date(task.scheduledDate + 'T' + startTime + ':00');
                 const endDate = new Date(startDate);
-                endDate.setHours(startDate.getHours() + Math.floor(task.duration || 1));
-                endDate.setMinutes(startDate.getMinutes() + ((task.duration || 1) % 1) * 60);
+                const duration = task.duration || DEFAULT_DURATION;
+                endDate.setHours(startDate.getHours() + Math.floor(duration));
+                endDate.setMinutes(startDate.getMinutes() + (duration % 1) * 60);
 
                 const event = {
                     summary: task.text,
@@ -2156,26 +2262,99 @@ async function syncFromGoogleCalendar() {
 }
 
 // Full sync (both directions)
-async function fullGoogleSync() {
+// silent = true for background auto-sync (no UI updates or toasts)
+async function fullGoogleSync(silent = false) {
     if (!GoogleCalendarState.isConnected) {
-        showToast('Connect to Google Calendar first');
+        if (!silent) showToast('Connect to Google Calendar first');
         return;
     }
 
     const syncBtn = document.getElementById('googleSyncBtn');
-    syncBtn.innerHTML = '<span>⏳</span> <span>Syncing...</span>';
-    syncBtn.disabled = true;
+
+    if (!silent) {
+        syncBtn.innerHTML = '<span>⏳</span> <span>Syncing...</span>';
+        syncBtn.disabled = true;
+    }
 
     try {
+        let synced = false;
         if (GoogleCalendarState.syncToGoogle) {
             await syncToGoogleCalendar();
+            synced = true;
         }
         if (GoogleCalendarState.syncFromGoogle) {
             await syncFromGoogleCalendar();
+            synced = true;
         }
+
+        // Also sync bid deadlines to Google Calendar if enabled
+        if (GoogleCalendarState.syncToGoogle && typeof BidTracker !== 'undefined') {
+            await syncBidDeadlinesToGoogle();
+        }
+
+        if (!silent && synced) {
+            showToast('Sync complete!');
+        }
+    } catch (error) {
+        if (!silent) {
+            showToast('Sync failed: ' + error.message);
+        }
+        throw error;
     } finally {
-        syncBtn.innerHTML = '<span>🔄</span> <span>Sync Now</span>';
-        syncBtn.disabled = false;
+        if (!silent) {
+            syncBtn.innerHTML = '<span>🔄</span> <span>Sync Now</span>';
+            syncBtn.disabled = false;
+        }
+    }
+}
+
+// Sync bid deadlines to Google Calendar
+async function syncBidDeadlinesToGoogle() {
+    if (typeof BidTracker === 'undefined' || !BidTracker.bids) return;
+
+    const activeBids = BidTracker.bids.filter(b => ['researching', 'preparing'].includes(b.status));
+
+    for (const bid of activeBids) {
+        if (!bid.dueDate || bid.googleEventId) continue; // Skip if no due date or already synced
+
+        try {
+            const dueDate = new Date(bid.dueDate);
+            const endDate = new Date(dueDate);
+            endDate.setHours(endDate.getHours() + 1);
+
+            const event = {
+                summary: `📋 BID DUE: ${bid.projectName}`,
+                description: `Client: ${bid.client}\nBid Number: ${bid.bidNumber || 'N/A'}\nEstimated Value: ${bid.estimatedValue || 'N/A'}\n\nGenerated by High-Performance Planner`,
+                start: {
+                    dateTime: dueDate.toISOString(),
+                    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                },
+                end: {
+                    dateTime: endDate.toISOString(),
+                    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                },
+                colorId: '11', // Red for urgent
+                reminders: {
+                    useDefault: false,
+                    overrides: [
+                        { method: 'popup', minutes: 60 },      // 1 hour before
+                        { method: 'popup', minutes: 1440 },    // 1 day before
+                        { method: 'popup', minutes: 4320 }     // 3 days before
+                    ]
+                }
+            };
+
+            const response = await gapi.client.calendar.events.insert({
+                calendarId: 'primary',
+                resource: event
+            });
+
+            // Store Google Event ID to prevent duplicates
+            bid.googleEventId = response.result.id;
+            BidTracker.saveBids();
+        } catch (error) {
+            console.warn(`Failed to sync bid "${bid.projectName}" to Google:`, error);
+        }
     }
 }
 
@@ -2265,6 +2444,43 @@ function initGoogleCalendar() {
 
         // Timeout after 5 seconds
         setTimeout(() => clearInterval(checkGapiLoaded), 5000);
+    }
+
+    // Auto-sync every 2 minutes when connected
+    const AUTO_SYNC_INTERVAL = 2 * 60 * 1000; // 2 minutes
+    let autoSyncInterval = null;
+
+    function startAutoSync() {
+        if (autoSyncInterval) clearInterval(autoSyncInterval);
+
+        autoSyncInterval = setInterval(async () => {
+            if (GoogleCalendarState.isConnected && (GoogleCalendarState.syncToGoogle || GoogleCalendarState.syncFromGoogle)) {
+                console.log('[Auto-sync] Running background sync...');
+                try {
+                    await fullGoogleSync(true); // true = silent mode (no toast)
+                } catch (error) {
+                    console.warn('[Auto-sync] Failed:', error.message);
+                }
+            }
+        }, AUTO_SYNC_INTERVAL);
+
+        console.log('[Auto-sync] Started - syncing every 2 minutes');
+    }
+
+    // Start auto-sync when connected
+    window.addEventListener('googleStatusChanged', () => {
+        if (GoogleCalendarState.isConnected) {
+            startAutoSync();
+        } else if (autoSyncInterval) {
+            clearInterval(autoSyncInterval);
+            autoSyncInterval = null;
+            console.log('[Auto-sync] Stopped');
+        }
+    });
+
+    // Also start if already connected on page load
+    if (GoogleCalendarState.isConnected) {
+        startAutoSync();
     }
 }
 
@@ -2427,7 +2643,7 @@ function renderVerticalTimeline() {
         // Add tasks that fall within this hour
         scheduledTasks.forEach(task => {
             const [tHour] = task.startTime.split(':').map(Number);
-            const tEndHour = tHour + (task.duration || 1);
+            const tEndHour = tHour + (task.duration || DEFAULT_DURATION);
             if (hour >= tHour && hour < tEndHour) {
                 const block = document.createElement('div');
                 block.className = 'v-timeline-block';
@@ -2812,7 +3028,7 @@ function renderTimelineTasks() {
     scheduledTasks.forEach(task => {
         const [hours, mins] = task.startTime.split(':').map(Number);
         const taskStart = hours * 60 + mins;
-        const taskEnd = taskStart + (task.duration || 1) * 60;
+        const taskEnd = taskStart + (task.duration || DEFAULT_DURATION) * 60;
 
         if (taskEnd <= startHour * 60 || taskStart >= endHour * 60) return;
 
@@ -2886,7 +3102,7 @@ function updateCurrentActivity() {
 
         const [hours, mins] = task.startTime.split(':').map(Number);
         const taskStart = hours * 60 + mins;
-        const taskEnd = taskStart + (task.duration || 1) * 60;
+        const taskEnd = taskStart + (task.duration || DEFAULT_DURATION) * 60;
 
         if (currentMinutes >= taskStart && currentMinutes < taskEnd) {
             activityName.textContent = task.text;
@@ -3303,6 +3519,114 @@ function initSettings() {
     // Initial calendar list load if connected
     if (GoogleCalendarState.isConnected) {
         updateCalendarSelectionUI();
+    }
+
+    // ==================== AI Settings ====================
+    const aiProvider = document.getElementById('aiProvider');
+    const aiModel = document.getElementById('aiModel');
+    const aiApiKey = document.getElementById('aiApiKey');
+    const toggleAiKeyVisibility = document.getElementById('toggleAiKeyVisibility');
+    const saveAiSettings = document.getElementById('saveAiSettings');
+    const testAiConnection = document.getElementById('testAiConnection');
+    const aiStatus = document.getElementById('aiStatus');
+
+    if (aiProvider && aiModel && aiApiKey) {
+        // Load current AI settings
+        aiProvider.value = AIService.config.provider || 'claude';
+        aiApiKey.value = AIService.config.apiKey || '';
+
+        // Set model based on provider
+        updateAiModelOptions();
+        aiModel.value = AIService.config.model || 'claude-3-haiku-20240307';
+
+        // Update AI status display
+        function updateAiStatus() {
+            const statusLabel = aiStatus.querySelector('.status-label');
+            if (AIService.isConfigured()) {
+                aiStatus.classList.remove('disconnected');
+                aiStatus.classList.add('connected');
+                statusLabel.textContent = 'Configured';
+            } else {
+                aiStatus.classList.remove('connected');
+                aiStatus.classList.add('disconnected');
+                statusLabel.textContent = 'Not configured';
+            }
+        }
+        updateAiStatus();
+
+        // Update model options based on provider
+        function updateAiModelOptions() {
+            const claudeModels = document.getElementById('claudeModels');
+            const geminiModels = document.getElementById('geminiModels');
+            if (aiProvider.value === 'claude') {
+                claudeModels.style.display = 'block';
+                geminiModels.style.display = 'none';
+                if (!aiModel.value.startsWith('claude')) {
+                    aiModel.value = 'claude-3-haiku-20240307';
+                }
+            } else {
+                claudeModels.style.display = 'none';
+                geminiModels.style.display = 'block';
+                if (!aiModel.value.startsWith('gemini')) {
+                    aiModel.value = 'gemini-2.0-flash';
+                }
+            }
+        }
+
+        aiProvider.addEventListener('change', updateAiModelOptions);
+
+        // Toggle API key visibility
+        toggleAiKeyVisibility.addEventListener('click', () => {
+            if (aiApiKey.type === 'password') {
+                aiApiKey.type = 'text';
+                toggleAiKeyVisibility.textContent = '🙈';
+            } else {
+                aiApiKey.type = 'password';
+                toggleAiKeyVisibility.textContent = '👁️';
+            }
+        });
+
+        // Save AI settings
+        saveAiSettings.addEventListener('click', () => {
+            AIService.config.provider = aiProvider.value;
+            AIService.config.model = aiModel.value;
+            AIService.config.apiKey = aiApiKey.value.trim();
+            AIService.saveConfig();
+            updateAiStatus();
+            showToast('AI settings saved successfully');
+        });
+
+        // Test AI connection
+        testAiConnection.addEventListener('click', async () => {
+            if (!aiApiKey.value.trim()) {
+                showToast('Please enter an API key first');
+                return;
+            }
+
+            // Temporarily save config for testing
+            AIService.config.provider = aiProvider.value;
+            AIService.config.model = aiModel.value;
+            AIService.config.apiKey = aiApiKey.value.trim();
+
+            testAiConnection.disabled = true;
+            testAiConnection.textContent = 'Testing...';
+
+            try {
+                const response = await AIService.callAI('Say "Connection successful!" in exactly those words.');
+                if (response.toLowerCase().includes('connection successful')) {
+                    showToast('AI connection successful!');
+                    AIService.saveConfig();
+                    updateAiStatus();
+                } else {
+                    showToast('AI responded but may not be working correctly');
+                }
+            } catch (error) {
+                showToast('Connection failed: ' + error.message);
+            } finally {
+                testAiConnection.disabled = false;
+                testAiConnection.textContent = 'Test Connection';
+            }
+        });
     }
 }
 

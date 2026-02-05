@@ -163,8 +163,41 @@ const BidTracker = {
         try {
             const text = await this.extractTextFromPDF(file);
 
-            // Parse the extracted text
-            this.extractedData = this.parseITBText(text);
+            // Try AI extraction first, fall back to regex
+            if (typeof AIService !== 'undefined' && AIService.isConfigured()) {
+                const progressText = document.getElementById('progressText');
+                progressText.textContent = 'AI analyzing document...';
+
+                try {
+                    const aiResult = await AIService.extractBidFromPDF(text);
+                    this.extractedData = {
+                        projectName: aiResult.projectName || '',
+                        bidNumber: aiResult.bidNumber || '',
+                        client: aiResult.client || '',
+                        estimatedValue: aiResult.estimatedValue || '',
+                        dueDate: this.formatAiDate(aiResult.bidDueDate, aiResult.bidDueTime),
+                        preBidDate: this.formatAiDate(aiResult.preBidMeeting, aiResult.preBidMeetingTime),
+                        rfiDate: this.formatAiDate(aiResult.rfiDueDate),
+                        siteVisitDate: this.formatAiDate(aiResult.siteVisitDate),
+                        projectLocation: aiResult.projectLocation || '',
+                        projectDescription: aiResult.projectDescription || '',
+                        bondRequired: aiResult.bondRequired || false,
+                        bondPercentage: aiResult.bondPercentage || '',
+                        aiConfidence: aiResult.confidence || 'medium',
+                        extractionMethod: 'ai'
+                    };
+                    this.showToast('AI extraction complete!', 'success');
+                } catch (aiError) {
+                    console.warn('AI extraction failed, using regex fallback:', aiError);
+                    this.extractedData = this.parseITBText(text);
+                    this.extractedData.extractionMethod = 'regex';
+                    this.showToast('Using pattern matching (AI unavailable)', 'warning');
+                }
+            } else {
+                // Fall back to regex extraction
+                this.extractedData = this.parseITBText(text);
+                this.extractedData.extractionMethod = 'regex';
+            }
 
             // Show preview
             this.showExtractedPreview();
@@ -172,6 +205,37 @@ const BidTracker = {
             console.error('Error extracting PDF:', error);
             this.showToast('Error reading PDF file. Please try again.', 'error');
             this.resetFileUpload();
+        }
+    },
+
+    // Format AI date response to datetime-local format
+    formatAiDate(dateStr, timeStr) {
+        if (!dateStr) return '';
+        try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return '';
+
+            let formatted = date.toISOString().slice(0, 10);
+            if (timeStr) {
+                // Parse time like "14:00" or "2:00 PM"
+                let time = timeStr;
+                if (timeStr.toLowerCase().includes('pm') && !timeStr.startsWith('12')) {
+                    const hourMatch = timeStr.match(/(\d+)/);
+                    if (hourMatch) {
+                        const hour = parseInt(hourMatch[1]) + 12;
+                        time = `${hour}:${timeStr.match(/:(\d+)/)?.[1] || '00'}`;
+                    }
+                } else if (timeStr.toLowerCase().includes('am') && timeStr.startsWith('12')) {
+                    time = `00:${timeStr.match(/:(\d+)/)?.[1] || '00'}`;
+                }
+                time = time.replace(/[^\d:]/g, '');
+                if (time.match(/^\d+:\d+$/)) {
+                    formatted += 'T' + time.padStart(5, '0');
+                }
+            }
+            return formatted;
+        } catch (e) {
+            return '';
         }
     },
 
@@ -672,6 +736,9 @@ const BidTracker = {
                     <td><span class="bid-status-badge ${bid.status}">${this.formatStatus(bid.status)}</span></td>
                     <td>
                         <div class="bid-actions">
+                            <button class="bid-action-btn ai-predict" onclick="BidTracker.predictBidSuccess(${bid.id})" title="AI Success Prediction">
+                                🔮
+                            </button>
                             <button class="bid-action-btn download-ics" onclick="BidTracker.downloadICS(${bid.id})" title="Download calendar events">
                                 ICS
                             </button>
@@ -1176,6 +1243,154 @@ const BidTracker = {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    },
+
+    // AI-powered bid success prediction
+    async predictBidSuccess(bidId) {
+        const bid = this.bids.find(b => b.id === bidId);
+        if (!bid) {
+            this.showToast('Bid not found', 'error');
+            return;
+        }
+
+        // Check if AI is configured
+        if (typeof AIService === 'undefined' || !AIService.isConfigured()) {
+            this.showToast('Please configure AI in Settings first', 'warning');
+            return;
+        }
+
+        // Show loading modal
+        this.showPredictionModal(bid, null, true);
+
+        try {
+            const prediction = await AIService.predictBidSuccess(bid, this.bids);
+            this.showPredictionModal(bid, prediction, false);
+        } catch (error) {
+            console.error('Prediction error:', error);
+            this.showToast('Failed to generate prediction: ' + error.message, 'error');
+            this.closePredictionModal();
+        }
+    },
+
+    // Show prediction modal
+    showPredictionModal(bid, prediction, loading = false) {
+        let modal = document.getElementById('bidPredictionModal');
+
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'bidPredictionModal';
+            modal.className = 'modal';
+            document.body.appendChild(modal);
+        }
+
+        if (loading) {
+            modal.innerHTML = `
+                <div class="modal-content bid-prediction-modal">
+                    <div class="modal-header">
+                        <h3>🔮 AI Bid Prediction</h3>
+                        <button class="close-btn" onclick="BidTracker.closePredictionModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="ai-loading">
+                            <div class="ai-loading-spinner"></div>
+                            <span>Analyzing bid for "${this.escapeHtml(bid.projectName)}"...</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (prediction) {
+            const scoreClass = prediction.successProbability >= 70 ? 'high' :
+                              prediction.successProbability >= 40 ? 'medium' : 'low';
+
+            modal.innerHTML = `
+                <div class="modal-content bid-prediction-modal">
+                    <div class="modal-header">
+                        <h3>🔮 AI Bid Prediction</h3>
+                        <button class="close-btn" onclick="BidTracker.closePredictionModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="bid-prediction-card">
+                            <div class="prediction-header">
+                                <div>
+                                    <h4>${this.escapeHtml(bid.projectName)}</h4>
+                                    <p style="color: var(--text-secondary); font-size: 13px;">${this.escapeHtml(bid.client)}</p>
+                                </div>
+                                <div class="prediction-score">
+                                    <div class="score-circle ${scoreClass}">
+                                        ${prediction.successProbability}%
+                                    </div>
+                                    <div>
+                                        <div class="score-label">Success Rate</div>
+                                        <div style="font-size: 12px; color: var(--text-secondary);">
+                                            Confidence: ${prediction.confidence}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="prediction-factors">
+                                <div class="factor-group positive">
+                                    <h5>✅ Positive Factors</h5>
+                                    <ul>
+                                        ${(prediction.factors?.positive || []).map(f => `<li>${this.escapeHtml(f)}</li>`).join('') || '<li>No specific factors identified</li>'}
+                                    </ul>
+                                </div>
+                                <div class="factor-group negative">
+                                    <h5>⚠️ Concerns</h5>
+                                    <ul>
+                                        ${(prediction.factors?.negative || []).map(f => `<li>${this.escapeHtml(f)}</li>`).join('') || '<li>No concerns identified</li>'}
+                                    </ul>
+                                </div>
+                                <div class="factor-group neutral">
+                                    <h5>ℹ️ Notes</h5>
+                                    <ul>
+                                        ${(prediction.factors?.neutral || []).map(f => `<li>${this.escapeHtml(f)}</li>`).join('') || '<li>No additional notes</li>'}
+                                    </ul>
+                                </div>
+                            </div>
+
+                            ${prediction.recommendations && prediction.recommendations.length > 0 ? `
+                            <div class="prediction-recommendations">
+                                <h5>💡 Recommendations</h5>
+                                <ul>
+                                    ${prediction.recommendations.map(r => `<li>${this.escapeHtml(r)}</li>`).join('')}
+                                </ul>
+                            </div>
+                            ` : ''}
+
+                            ${prediction.competitiveAnalysis ? `
+                            <div style="margin-top: 16px; padding: 12px; background: var(--bg-secondary); border-radius: 8px;">
+                                <h5 style="margin: 0 0 8px 0; font-size: 13px;">📊 Competitive Analysis</h5>
+                                <p style="margin: 0; font-size: 12px; color: var(--text-secondary);">${this.escapeHtml(prediction.competitiveAnalysis)}</p>
+                            </div>
+                            ` : ''}
+
+                            <div style="margin-top: 16px; display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary);">
+                                <span>Risk Level: <strong style="color: ${prediction.riskLevel === 'low' ? '#10b981' : prediction.riskLevel === 'high' ? '#ef4444' : '#f59e0b'}">${prediction.riskLevel?.toUpperCase() || 'UNKNOWN'}</strong></span>
+                                <span>Analysis powered by AI</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+
+        // Close on background click
+        modal.onclick = (e) => {
+            if (e.target === modal) this.closePredictionModal();
+        };
+    },
+
+    // Close prediction modal
+    closePredictionModal() {
+        const modal = document.getElementById('bidPredictionModal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+        }
     },
 
     // Show toast notification
