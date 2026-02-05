@@ -324,6 +324,41 @@ ${JSON.stringify(eisenhowerData, null, 2)}
             console.error('Workload analysis error:', error);
             return null;
         }
+    },
+
+    // ==================== Document Q&A ====================
+    async askAboutDocument(documentText, question) {
+        const systemPrompt = `You are a helpful construction bid document analyst.
+You are given the text content of an ITB (Invitation to Bid) or similar construction document.
+Answer questions about the document accurately and concisely.
+If the information is not in the document, say so clearly.
+Focus on key details like:
+- Liquidated damages amounts and terms
+- DBE/MBE requirements and percentages
+- Bonding requirements (bid bond, performance bond percentages)
+- Insurance requirements
+- Payment terms and retainage
+- Project duration and milestones
+- Prequalification requirements
+- Addenda information
+- Special conditions
+
+Keep answers brief and to the point. Use bullet points for lists.`;
+
+        const prompt = `DOCUMENT CONTENT:
+${documentText.substring(0, 50000)}
+
+QUESTION: ${question}
+
+Please answer based on the document above.`;
+
+        try {
+            const response = await this.callAI(prompt, systemPrompt);
+            return response;
+        } catch (error) {
+            console.error('Document Q&A error:', error);
+            throw new Error('Failed to analyze document: ' + error.message);
+        }
     }
 };
 
