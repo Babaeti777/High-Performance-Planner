@@ -4352,6 +4352,166 @@ select:focus {
     color: var(--text-secondary);
 }
 
+/* Smart Schedule Modal */
+.smart-schedule-modal {
+    max-width: 700px;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.smart-schedule-intro {
+    text-align: center;
+    padding: 20px;
+}
+
+.smart-schedule-intro p {
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+}
+
+.schedule-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+    margin-bottom: 24px;
+}
+
+.option-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.option-group label {
+    color: var(--text-secondary);
+}
+
+.option-group select,
+.option-group input[type="time"] {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.schedule-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.schedule-header h4 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.utilization-badge {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.schedule-task-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+.priority-indicator {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.priority-indicator.high { background: #ef4444; color: white; }
+.priority-indicator.medium { background: #f59e0b; color: white; }
+.priority-indicator.low { background: #6b7280; color: white; }
+
+.schedule-suggestions,
+.schedule-conflicts {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.schedule-suggestions {
+    background: rgba(99, 102, 241, 0.1);
+    border-left: 3px solid var(--accent-primary);
+}
+
+.schedule-conflicts {
+    background: rgba(239, 68, 68, 0.1);
+    border-left: 3px solid #ef4444;
+}
+
+.schedule-suggestions h5,
+.schedule-conflicts h5 {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+}
+
+.schedule-suggestions ul,
+.schedule-conflicts ul {
+    margin: 0;
+    padding-left: 16px;
+}
+
+.schedule-suggestions li,
+.schedule-conflicts li {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin: 4px 0;
+}
+
+.schedule-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+.error-message {
+    text-align: center;
+    padding: 24px;
+    color: #ef4444;
+}
+
+.error-message button {
+    margin-top: 12px;
+}
+
+/* AI Button style */
+.quick-action-btn.ai-btn {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+    border-color: rgba(99, 102, 241, 0.3);
+}
+
+.quick-action-btn.ai-btn:hover {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.3) 0%, rgba(139, 92, 246, 0.3) 100%);
+    border-color: var(--accent-primary);
+}
+
+/* Week view routine blocks */
+.week-routine-block {
+    z-index: 1;
+}
+
+.week-task-block {
+    z-index: 2;
+}
+
 /* Responsive AI styles */
 @media (max-width: 768px) {
     .ai-feature-list {
@@ -4360,5 +4520,18 @@ select:focus {
 
     .prediction-factors {
         grid-template-columns: 1fr;
+    }
+
+    .smart-schedule-modal {
+        max-width: 95%;
+    }
+
+    .schedule-options {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .option-group {
+        justify-content: space-between;
     }
 }

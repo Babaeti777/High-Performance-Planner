@@ -726,8 +726,52 @@ function renderDayView(date) {
         return timeA.localeCompare(timeB);
     });
 
-    // Render Gantt bars
-    sortedTasks.forEach((task, index) => {
+    // Calculate lanes for overlapping tasks
+    function getTaskEndMinutes(task) {
+        const startTime = task.startTime || DEFAULT_START_TIME;
+        const duration = task.duration || DEFAULT_DURATION;
+        const [startHour, startMin] = startTime.split(':').map(Number);
+        return (startHour * 60 + startMin) + (duration * 60);
+    }
+
+    function getTaskStartMinutes(task) {
+        const startTime = task.startTime || DEFAULT_START_TIME;
+        const [startHour, startMin] = startTime.split(':').map(Number);
+        return startHour * 60 + startMin;
+    }
+
+    // Assign lanes to avoid overlapping
+    const taskLanes = [];
+    sortedTasks.forEach(task => {
+        const taskStart = getTaskStartMinutes(task);
+        const taskEnd = getTaskEndMinutes(task);
+
+        // Find the first lane where this task doesn't overlap
+        let assignedLane = 0;
+        for (let lane = 0; lane < taskLanes.length; lane++) {
+            const laneEndTime = taskLanes[lane];
+            if (taskStart >= laneEndTime) {
+                assignedLane = lane;
+                taskLanes[lane] = taskEnd;
+                break;
+            }
+            assignedLane = lane + 1;
+        }
+
+        // If no suitable lane found, create a new one
+        if (assignedLane >= taskLanes.length) {
+            taskLanes.push(taskEnd);
+        } else {
+            taskLanes[assignedLane] = taskEnd;
+        }
+
+        task._lane = assignedLane;
+    });
+
+    const totalLanes = Math.max(taskLanes.length, 1);
+
+    // Render Gantt bars with lane positioning
+    sortedTasks.forEach((task) => {
         const startTime = task.startTime || DEFAULT_START_TIME;
         const duration = task.duration || DEFAULT_DURATION;
         const [startHour, startMin] = startTime.split(':').map(Number);
@@ -744,7 +788,7 @@ function renderDayView(date) {
         ganttBar.style.backgroundColor = color;
         ganttBar.style.left = `${startOffset}px`;
         ganttBar.style.width = `${widthPx}px`;
-        ganttBar.style.top = `${index * GANTT_BAR_HEIGHT}px`;
+        ganttBar.style.top = `${task._lane * GANTT_BAR_HEIGHT}px`;
 
         ganttBar.innerHTML = `
             <span class="gantt-bar-text">${task.text}</span>
@@ -2522,6 +2566,9 @@ function initHomePage() {
         document.getElementById('routinesPanel')?.classList.remove('hidden');
     });
 
+    // Smart Schedule AI button
+    initSmartSchedule();
+
     // Manage routines buttons (multiple locations)
     document.getElementById('sidebarManageRoutines')?.addEventListener('click', () => {
         document.getElementById('routinesPanel')?.classList.remove('hidden');
@@ -3630,6 +3677,322 @@ function initSettings() {
     }
 }
 
+// ==================== Smart AI Schedule ====================
+function initSmartSchedule() {
+    const smartScheduleBtn = document.getElementById('smartScheduleBtn');
+    const smartScheduleModal = document.getElementById('smartScheduleModal');
+    const closeSmartSchedule = document.getElementById('closeSmartSchedule');
+    const generateScheduleBtn = document.getElementById('generateScheduleBtn');
+    const scheduleResult = document.getElementById('scheduleResult');
+    const smartScheduleBody = document.getElementById('smartScheduleBody');
+
+    if (!smartScheduleBtn || !smartScheduleModal) return;
+
+    // Open modal
+    smartScheduleBtn.addEventListener('click', () => {
+        if (typeof AIService === 'undefined' || !AIService.isConfigured()) {
+            showToast('Please configure AI in Settings first');
+            document.querySelector('[data-tab="settings"]')?.click();
+            return;
+        }
+        smartScheduleModal.classList.remove('hidden');
+    });
+
+    // Close modal
+    closeSmartSchedule?.addEventListener('click', () => {
+        smartScheduleModal.classList.add('hidden');
+    });
+
+    smartScheduleModal.addEventListener('click', (e) => {
+        if (e.target === smartScheduleModal) {
+            smartScheduleModal.classList.add('hidden');
+        }
+    });
+
+    // Generate schedule
+    generateScheduleBtn?.addEventListener('click', async () => {
+        const days = parseInt(document.getElementById('scheduleDays').value) || 7;
+        const workStart = document.getElementById('workStartTime').value || '06:00';
+        const workEnd = document.getElementById('workEndTime').value || '22:00';
+
+        // Show loading
+        scheduleResult.classList.remove('hidden');
+        scheduleResult.innerHTML = `
+            <div class="ai-loading">
+                <div class="ai-loading-spinner"></div>
+                <span>AI is analyzing your workload and creating optimal schedule...</span>
+            </div>
+        `;
+        document.querySelector('.smart-schedule-intro').style.display = 'none';
+
+        try {
+            // Gather all unscheduled and upcoming tasks
+            const allTasks = [];
+            const today = new Date();
+
+            // Get tasks from Eisenhower matrix
+            Object.entries(AppState.data.eisenhower).forEach(([quadrant, tasks]) => {
+                tasks.forEach(task => {
+                    if (!task.completed) {
+                        allTasks.push({ ...task, quadrant });
+                    }
+                });
+            });
+
+            // Get tasks from daily
+            for (let i = 0; i < days; i++) {
+                const date = new Date(today);
+                date.setDate(date.getDate() + i);
+                const dateKey = formatDate(date);
+                const dayTasks = AppState.data.daily[dateKey]?.tasks || [];
+                dayTasks.forEach(task => {
+                    if (!task.completed && !allTasks.find(t => t.id === task.id)) {
+                        allTasks.push(task);
+                    }
+                });
+            }
+
+            // Get bid deadlines
+            let bidDeadlines = '';
+            if (typeof BidTracker !== 'undefined' && BidTracker.bids) {
+                const activeBids = BidTracker.bids.filter(b => ['researching', 'preparing'].includes(b.status));
+                bidDeadlines = activeBids.map(b => `${b.projectName}: Due ${b.dueDate}`).join(', ');
+            }
+
+            const schedule = await AIService.generateSmartSchedule(
+                allTasks,
+                RoutinesState.routines,
+                {
+                    startDate: formatDate(today),
+                    endDate: formatDate(new Date(today.getTime() + days * 24 * 60 * 60 * 1000)),
+                    workStart,
+                    workEnd,
+                    bidDeadlines
+                }
+            );
+
+            // Display schedule
+            displaySmartSchedule(schedule);
+        } catch (error) {
+            scheduleResult.innerHTML = `
+                <div class="error-message">
+                    <p>❌ Failed to generate schedule: ${error.message}</p>
+                    <button class="btn btn-secondary" onclick="document.querySelector('.smart-schedule-intro').style.display='block'; document.getElementById('scheduleResult').classList.add('hidden');">Try Again</button>
+                </div>
+            `;
+        }
+    });
+
+    function displaySmartSchedule(schedule) {
+        if (!schedule || !schedule.schedule) {
+            scheduleResult.innerHTML = '<p>No schedule generated</p>';
+            return;
+        }
+
+        // Group by date
+        const byDate = {};
+        schedule.schedule.forEach(item => {
+            if (!byDate[item.date]) byDate[item.date] = [];
+            byDate[item.date].push(item);
+        });
+
+        let html = `
+            <div class="schedule-header">
+                <h4>📅 Your Optimized Schedule</h4>
+                ${schedule.utilizationRate ? `<span class="utilization-badge">${schedule.utilizationRate} utilized</span>` : ''}
+            </div>
+        `;
+
+        // Render each day
+        Object.entries(byDate).forEach(([date, items]) => {
+            const dateObj = new Date(date + 'T00:00:00');
+            const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+
+            html += `<div class="schedule-day">
+                <div class="schedule-day-header">${dayName}</div>`;
+
+            items.sort((a, b) => a.startTime.localeCompare(b.startTime)).forEach(item => {
+                const typeClass = item.type || 'task';
+                html += `
+                    <div class="schedule-item ${typeClass}">
+                        <span class="schedule-time">${item.startTime} - ${item.endTime}</span>
+                        <span class="schedule-task-name">${item.taskName}</span>
+                        ${item.priority ? `<span class="priority-indicator ${item.priority}">${item.priority}</span>` : ''}
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+        });
+
+        // Add suggestions
+        if (schedule.suggestions && schedule.suggestions.length > 0) {
+            html += `
+                <div class="schedule-suggestions">
+                    <h5>💡 AI Suggestions</h5>
+                    <ul>
+                        ${schedule.suggestions.map(s => `<li>${s}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        // Add conflicts warning
+        if (schedule.conflicts && schedule.conflicts.length > 0) {
+            html += `
+                <div class="schedule-conflicts">
+                    <h5>⚠️ Conflicts Detected</h5>
+                    <ul>
+                        ${schedule.conflicts.map(c => `<li>${c}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        html += `
+            <div class="schedule-actions">
+                <button class="btn btn-primary" id="applyScheduleBtn">✅ Apply Schedule</button>
+                <button class="btn btn-secondary" onclick="document.querySelector('.smart-schedule-intro').style.display='block'; document.getElementById('scheduleResult').classList.add('hidden');">🔄 Regenerate</button>
+            </div>
+        `;
+
+        scheduleResult.innerHTML = html;
+
+        // Apply schedule button
+        document.getElementById('applyScheduleBtn')?.addEventListener('click', () => {
+            applySmartSchedule(schedule);
+        });
+    }
+
+    function applySmartSchedule(schedule) {
+        if (!schedule || !schedule.schedule) return;
+
+        let applied = 0;
+        schedule.schedule.forEach(item => {
+            if (item.type === 'task' && item.taskId) {
+                // Find and update the task
+                const dateKey = item.date;
+
+                // Ensure daily entry exists
+                if (!AppState.data.daily[dateKey]) {
+                    AppState.data.daily[dateKey] = { tasks: [] };
+                }
+
+                // Check if task already exists for this date
+                const existingTask = AppState.data.daily[dateKey].tasks.find(t => t.id === item.taskId);
+                if (existingTask) {
+                    existingTask.startTime = item.startTime;
+                    existingTask.scheduledDate = dateKey;
+                } else {
+                    // Look for task in eisenhower matrix
+                    for (const [quadrant, tasks] of Object.entries(AppState.data.eisenhower)) {
+                        const task = tasks.find(t => t.id === item.taskId);
+                        if (task) {
+                            task.startTime = item.startTime;
+                            task.scheduledDate = dateKey;
+
+                            // Add to daily if not already there
+                            if (!AppState.data.daily[dateKey].tasks.find(t => t.id === task.id)) {
+                                AppState.data.daily[dateKey].tasks.push({ ...task });
+                            }
+                            break;
+                        }
+                    }
+                }
+                applied++;
+            }
+        });
+
+        saveData();
+        renderCalendar();
+        renderEisenhowerMatrix();
+        showToast(`Applied ${applied} scheduled items!`);
+        smartScheduleModal.classList.add('hidden');
+
+        // Reset modal state
+        document.querySelector('.smart-schedule-intro').style.display = 'block';
+        scheduleResult.classList.add('hidden');
+    }
+}
+
+// ==================== Keyboard Shortcuts ====================
+function initKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Don't trigger shortcuts when typing in inputs
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+            // Allow Escape to close modals even when in input
+            if (e.key === 'Escape') {
+                closeAllModals();
+            }
+            return;
+        }
+
+        // Global shortcuts
+        switch (e.key.toLowerCase()) {
+            case 'n':
+                // N = New task
+                e.preventDefault();
+                openTaskModal(new Date());
+                break;
+
+            case 'h':
+                // H = Home
+                e.preventDefault();
+                document.querySelector('[data-tab="home"]')?.click();
+                break;
+
+            case 'p':
+                // P = Prioritize (Eisenhower)
+                e.preventDefault();
+                document.querySelector('[data-tab="eisenhower"]')?.click();
+                break;
+
+            case 'c':
+                // C = Calendar
+                e.preventDefault();
+                document.querySelector('[data-tab="calendar"]')?.click();
+                break;
+
+            case 'b':
+                // B = Bid Tracker
+                e.preventDefault();
+                document.querySelector('[data-tab="bids"]')?.click();
+                break;
+
+            case 's':
+                // S = Sync (if connected to Google)
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    if (GoogleCalendarState.isConnected) {
+                        fullGoogleSync();
+                    }
+                }
+                break;
+
+            case '/':
+            case '?':
+                // ? = Show shortcuts help
+                e.preventDefault();
+                showShortcutsHelp();
+                break;
+
+            case 'escape':
+                closeAllModals();
+                break;
+        }
+    });
+}
+
+function closeAllModals() {
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.classList.add('hidden');
+    });
+}
+
+function showShortcutsHelp() {
+    showToast('Shortcuts: N=New Task, H=Home, P=Prioritize, C=Calendar, B=Bids, Ctrl+S=Sync, ?=Help');
+}
+
 // ==================== Initialize App ====================
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
@@ -3645,4 +4008,5 @@ document.addEventListener('DOMContentLoaded', () => {
     initSidebarToggle();
     initGoogleCalendar();
     initSettings();
+    initKeyboardShortcuts();
 });
