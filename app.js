@@ -864,12 +864,57 @@ function renderWeekView() {
         const tasksGrid = document.createElement('div');
         tasksGrid.className = 'week-day-tasks-grid';
 
-        // Create time slot backgrounds
+        // Create time slot backgrounds with click-to-add functionality
         for (let hour = DAY_START_HOUR; hour <= DAY_END_HOUR; hour++) {
             const slot = document.createElement('div');
             slot.className = 'week-time-slot-bg';
+            slot.title = `Click to add task at ${hour > 12 ? hour - 12 : hour}${hour >= 12 ? 'PM' : 'AM'}`;
+
+            // Quick-add on click
+            slot.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const clickedHour = hour;
+                openTaskModalWithTime(date, `${String(clickedHour).padStart(2, '0')}:00`);
+            });
+
             tasksGrid.appendChild(slot);
         }
+
+        // Add routines for this day
+        const dayOfWeek = date.getDay(); // 0 = Sunday
+        const dayRoutines = RoutinesState.routines.filter(r => r.days && r.days.includes(dayOfWeek));
+
+        dayRoutines.forEach(routine => {
+            const [startHour, startMin] = routine.startTime.split(':').map(Number);
+            const duration = routine.duration || DEFAULT_DURATION;
+
+            // Calculate position
+            const topOffset = (startHour - DAY_START_HOUR) * WEEK_VIEW_PX_PER_HOUR + (startMin / 60) * WEEK_VIEW_PX_PER_HOUR;
+            const height = duration * WEEK_VIEW_PX_PER_HOUR;
+
+            // Skip if outside visible time range
+            if (startHour < DAY_START_HOUR || startHour >= DAY_END_HOUR) return;
+
+            const routineBlock = document.createElement('div');
+            routineBlock.className = 'week-task-block week-routine-block';
+            routineBlock.style.backgroundColor = routine.color || '#10b981';
+            routineBlock.style.top = `${topOffset}px`;
+            routineBlock.style.height = `${Math.max(height, 25)}px`;
+            routineBlock.style.opacity = '0.7';
+            routineBlock.style.borderStyle = 'dashed';
+
+            routineBlock.innerHTML = `
+                <span class="week-task-text">${routine.emoji || ''} ${routine.name}</span>
+                <span class="week-task-duration">${duration}h</span>
+            `;
+
+            routineBlock.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Don't open task view for routines
+            });
+
+            tasksGrid.appendChild(routineBlock);
+        });
 
         // Add tasks as positioned blocks
         const tasks = AppState.data.daily[dateKey]?.tasks || [];
@@ -999,6 +1044,24 @@ function openTaskModal(date) {
     const dateInput = document.getElementById('modalTaskDate');
 
     dateInput.value = formatDate(date);
+    modal.classList.remove('hidden');
+    document.getElementById('modalTaskName').focus();
+}
+
+// Open task modal with pre-filled time (for quick-add from time slots)
+function openTaskModalWithTime(date, startTime) {
+    const modal = document.getElementById('taskModal');
+    const dateInput = document.getElementById('modalTaskDate');
+    const timeInput = document.getElementById('modalTaskStartTime');
+
+    // Close day/week modal if open
+    const dayWeekModal = document.getElementById('dayWeekModal');
+    if (dayWeekModal) {
+        dayWeekModal.classList.add('hidden');
+    }
+
+    dateInput.value = formatDate(date);
+    timeInput.value = startTime;
     modal.classList.remove('hidden');
     document.getElementById('modalTaskName').focus();
 }
@@ -1776,6 +1839,7 @@ function initSidebarToggle() {
     const mobileMenuToggle = document.getElementById('mobileMenuToggle');
     const sidebarOverlay = document.getElementById('sidebarOverlay');
     const sidebarClose = document.getElementById('sidebarClose');
+    const sidebarCollapseBtn = document.getElementById('sidebarCollapseBtn');
     const sidebar = document.getElementById('sidebar');
 
     function openSidebar() {
@@ -1815,6 +1879,25 @@ function initSidebarToggle() {
             }
         });
     });
+
+    // Collapse sidebar toggle (desktop)
+    if (sidebarCollapseBtn) {
+        // Load saved collapse state
+        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (isCollapsed) {
+            sidebar.classList.add('collapsed');
+            sidebarCollapseBtn.textContent = '»';
+            sidebarCollapseBtn.title = 'Expand sidebar';
+        }
+
+        sidebarCollapseBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            const collapsed = sidebar.classList.contains('collapsed');
+            localStorage.setItem('sidebarCollapsed', collapsed);
+            sidebarCollapseBtn.textContent = collapsed ? '»' : '«';
+            sidebarCollapseBtn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+        });
+    }
 }
 
 // ==================== Google Calendar Integration ====================
@@ -2179,26 +2262,99 @@ async function syncFromGoogleCalendar() {
 }
 
 // Full sync (both directions)
-async function fullGoogleSync() {
+// silent = true for background auto-sync (no UI updates or toasts)
+async function fullGoogleSync(silent = false) {
     if (!GoogleCalendarState.isConnected) {
-        showToast('Connect to Google Calendar first');
+        if (!silent) showToast('Connect to Google Calendar first');
         return;
     }
 
     const syncBtn = document.getElementById('googleSyncBtn');
-    syncBtn.innerHTML = '<span>⏳</span> <span>Syncing...</span>';
-    syncBtn.disabled = true;
+
+    if (!silent) {
+        syncBtn.innerHTML = '<span>⏳</span> <span>Syncing...</span>';
+        syncBtn.disabled = true;
+    }
 
     try {
+        let synced = false;
         if (GoogleCalendarState.syncToGoogle) {
             await syncToGoogleCalendar();
+            synced = true;
         }
         if (GoogleCalendarState.syncFromGoogle) {
             await syncFromGoogleCalendar();
+            synced = true;
         }
+
+        // Also sync bid deadlines to Google Calendar if enabled
+        if (GoogleCalendarState.syncToGoogle && typeof BidTracker !== 'undefined') {
+            await syncBidDeadlinesToGoogle();
+        }
+
+        if (!silent && synced) {
+            showToast('Sync complete!');
+        }
+    } catch (error) {
+        if (!silent) {
+            showToast('Sync failed: ' + error.message);
+        }
+        throw error;
     } finally {
-        syncBtn.innerHTML = '<span>🔄</span> <span>Sync Now</span>';
-        syncBtn.disabled = false;
+        if (!silent) {
+            syncBtn.innerHTML = '<span>🔄</span> <span>Sync Now</span>';
+            syncBtn.disabled = false;
+        }
+    }
+}
+
+// Sync bid deadlines to Google Calendar
+async function syncBidDeadlinesToGoogle() {
+    if (typeof BidTracker === 'undefined' || !BidTracker.bids) return;
+
+    const activeBids = BidTracker.bids.filter(b => ['researching', 'preparing'].includes(b.status));
+
+    for (const bid of activeBids) {
+        if (!bid.dueDate || bid.googleEventId) continue; // Skip if no due date or already synced
+
+        try {
+            const dueDate = new Date(bid.dueDate);
+            const endDate = new Date(dueDate);
+            endDate.setHours(endDate.getHours() + 1);
+
+            const event = {
+                summary: `📋 BID DUE: ${bid.projectName}`,
+                description: `Client: ${bid.client}\nBid Number: ${bid.bidNumber || 'N/A'}\nEstimated Value: ${bid.estimatedValue || 'N/A'}\n\nGenerated by High-Performance Planner`,
+                start: {
+                    dateTime: dueDate.toISOString(),
+                    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                },
+                end: {
+                    dateTime: endDate.toISOString(),
+                    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                },
+                colorId: '11', // Red for urgent
+                reminders: {
+                    useDefault: false,
+                    overrides: [
+                        { method: 'popup', minutes: 60 },      // 1 hour before
+                        { method: 'popup', minutes: 1440 },    // 1 day before
+                        { method: 'popup', minutes: 4320 }     // 3 days before
+                    ]
+                }
+            };
+
+            const response = await gapi.client.calendar.events.insert({
+                calendarId: 'primary',
+                resource: event
+            });
+
+            // Store Google Event ID to prevent duplicates
+            bid.googleEventId = response.result.id;
+            BidTracker.saveBids();
+        } catch (error) {
+            console.warn(`Failed to sync bid "${bid.projectName}" to Google:`, error);
+        }
     }
 }
 
@@ -2288,6 +2444,43 @@ function initGoogleCalendar() {
 
         // Timeout after 5 seconds
         setTimeout(() => clearInterval(checkGapiLoaded), 5000);
+    }
+
+    // Auto-sync every 2 minutes when connected
+    const AUTO_SYNC_INTERVAL = 2 * 60 * 1000; // 2 minutes
+    let autoSyncInterval = null;
+
+    function startAutoSync() {
+        if (autoSyncInterval) clearInterval(autoSyncInterval);
+
+        autoSyncInterval = setInterval(async () => {
+            if (GoogleCalendarState.isConnected && (GoogleCalendarState.syncToGoogle || GoogleCalendarState.syncFromGoogle)) {
+                console.log('[Auto-sync] Running background sync...');
+                try {
+                    await fullGoogleSync(true); // true = silent mode (no toast)
+                } catch (error) {
+                    console.warn('[Auto-sync] Failed:', error.message);
+                }
+            }
+        }, AUTO_SYNC_INTERVAL);
+
+        console.log('[Auto-sync] Started - syncing every 2 minutes');
+    }
+
+    // Start auto-sync when connected
+    window.addEventListener('googleStatusChanged', () => {
+        if (GoogleCalendarState.isConnected) {
+            startAutoSync();
+        } else if (autoSyncInterval) {
+            clearInterval(autoSyncInterval);
+            autoSyncInterval = null;
+            console.log('[Auto-sync] Stopped');
+        }
+    });
+
+    // Also start if already connected on page load
+    if (GoogleCalendarState.isConnected) {
+        startAutoSync();
     }
 }
 
@@ -3326,6 +3519,114 @@ function initSettings() {
     // Initial calendar list load if connected
     if (GoogleCalendarState.isConnected) {
         updateCalendarSelectionUI();
+    }
+
+    // ==================== AI Settings ====================
+    const aiProvider = document.getElementById('aiProvider');
+    const aiModel = document.getElementById('aiModel');
+    const aiApiKey = document.getElementById('aiApiKey');
+    const toggleAiKeyVisibility = document.getElementById('toggleAiKeyVisibility');
+    const saveAiSettings = document.getElementById('saveAiSettings');
+    const testAiConnection = document.getElementById('testAiConnection');
+    const aiStatus = document.getElementById('aiStatus');
+
+    if (aiProvider && aiModel && aiApiKey) {
+        // Load current AI settings
+        aiProvider.value = AIService.config.provider || 'claude';
+        aiApiKey.value = AIService.config.apiKey || '';
+
+        // Set model based on provider
+        updateAiModelOptions();
+        aiModel.value = AIService.config.model || 'claude-3-haiku-20240307';
+
+        // Update AI status display
+        function updateAiStatus() {
+            const statusLabel = aiStatus.querySelector('.status-label');
+            if (AIService.isConfigured()) {
+                aiStatus.classList.remove('disconnected');
+                aiStatus.classList.add('connected');
+                statusLabel.textContent = 'Configured';
+            } else {
+                aiStatus.classList.remove('connected');
+                aiStatus.classList.add('disconnected');
+                statusLabel.textContent = 'Not configured';
+            }
+        }
+        updateAiStatus();
+
+        // Update model options based on provider
+        function updateAiModelOptions() {
+            const claudeModels = document.getElementById('claudeModels');
+            const geminiModels = document.getElementById('geminiModels');
+            if (aiProvider.value === 'claude') {
+                claudeModels.style.display = 'block';
+                geminiModels.style.display = 'none';
+                if (!aiModel.value.startsWith('claude')) {
+                    aiModel.value = 'claude-3-haiku-20240307';
+                }
+            } else {
+                claudeModels.style.display = 'none';
+                geminiModels.style.display = 'block';
+                if (!aiModel.value.startsWith('gemini')) {
+                    aiModel.value = 'gemini-2.0-flash';
+                }
+            }
+        }
+
+        aiProvider.addEventListener('change', updateAiModelOptions);
+
+        // Toggle API key visibility
+        toggleAiKeyVisibility.addEventListener('click', () => {
+            if (aiApiKey.type === 'password') {
+                aiApiKey.type = 'text';
+                toggleAiKeyVisibility.textContent = '🙈';
+            } else {
+                aiApiKey.type = 'password';
+                toggleAiKeyVisibility.textContent = '👁️';
+            }
+        });
+
+        // Save AI settings
+        saveAiSettings.addEventListener('click', () => {
+            AIService.config.provider = aiProvider.value;
+            AIService.config.model = aiModel.value;
+            AIService.config.apiKey = aiApiKey.value.trim();
+            AIService.saveConfig();
+            updateAiStatus();
+            showToast('AI settings saved successfully');
+        });
+
+        // Test AI connection
+        testAiConnection.addEventListener('click', async () => {
+            if (!aiApiKey.value.trim()) {
+                showToast('Please enter an API key first');
+                return;
+            }
+
+            // Temporarily save config for testing
+            AIService.config.provider = aiProvider.value;
+            AIService.config.model = aiModel.value;
+            AIService.config.apiKey = aiApiKey.value.trim();
+
+            testAiConnection.disabled = true;
+            testAiConnection.textContent = 'Testing...';
+
+            try {
+                const response = await AIService.callAI('Say "Connection successful!" in exactly those words.');
+                if (response.toLowerCase().includes('connection successful')) {
+                    showToast('AI connection successful!');
+                    AIService.saveConfig();
+                    updateAiStatus();
+                } else {
+                    showToast('AI responded but may not be working correctly');
+                }
+            } catch (error) {
+                showToast('Connection failed: ' + error.message);
+            } finally {
+                testAiConnection.disabled = false;
+                testAiConnection.textContent = 'Test Connection';
+            }
+        });
     }
 }
 
