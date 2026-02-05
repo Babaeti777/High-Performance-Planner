@@ -7,11 +7,36 @@ const BidTracker = {
     editingBidId: null,
     filterStatus: 'all',
     extractedData: null,
+    currentPdfText: null, // Store PDF text for AI chat
+    chatMessages: [],
+
+    // Lead time defaults (in days)
+    leadTimes: {
+        scopeReview: 10,
+        subBids: 7,
+        bidBond: 5,
+        addendum: 3,
+        finalize: 1,
+        rfi: 1
+    },
+
+    // ICS reminder settings
+    reminderSettings: {
+        oneHour: true,
+        oneDay: true,
+        threeDays: false,
+        oneWeek: false
+    },
 
     // Initialize the bid tracker
     init() {
         this.loadBids();
+        this.loadLeadTimes();
+        this.loadReminderSettings();
         this.bindEvents();
+        this.bindChatEvents();
+        this.bindLeadTimeEvents();
+        this.handleDeepLink();
         this.render();
         this.initPdfJs();
         // Sync existing bids to Calendar and Matrix
@@ -45,6 +70,261 @@ const BidTracker = {
         } catch (e) {
             console.error('Error saving bids:', e);
         }
+    },
+
+    // Load lead time settings
+    loadLeadTimes() {
+        try {
+            const saved = localStorage.getItem('bidLeadTimes');
+            if (saved) {
+                this.leadTimes = { ...this.leadTimes, ...JSON.parse(saved) };
+            }
+            // Update UI
+            const inputs = {
+                leadScopeReview: this.leadTimes.scopeReview,
+                leadSubBids: this.leadTimes.subBids,
+                leadBidBond: this.leadTimes.bidBond,
+                leadAddendum: this.leadTimes.addendum,
+                leadFinalize: this.leadTimes.finalize,
+                leadRfi: this.leadTimes.rfi
+            };
+            Object.entries(inputs).forEach(([id, value]) => {
+                const el = document.getElementById(id);
+                if (el) el.value = value;
+            });
+        } catch (e) {
+            console.error('Error loading lead times:', e);
+        }
+    },
+
+    // Save lead time settings
+    saveLeadTimes() {
+        try {
+            localStorage.setItem('bidLeadTimes', JSON.stringify(this.leadTimes));
+            this.showToast('Lead time settings saved!', 'success');
+        } catch (e) {
+            console.error('Error saving lead times:', e);
+        }
+    },
+
+    // Load reminder settings
+    loadReminderSettings() {
+        try {
+            const saved = localStorage.getItem('bidReminderSettings');
+            if (saved) {
+                this.reminderSettings = { ...this.reminderSettings, ...JSON.parse(saved) };
+            }
+            // Update UI
+            document.getElementById('reminder1Hour').checked = this.reminderSettings.oneHour;
+            document.getElementById('reminder1Day').checked = this.reminderSettings.oneDay;
+            document.getElementById('reminder3Days').checked = this.reminderSettings.threeDays;
+            document.getElementById('reminder1Week').checked = this.reminderSettings.oneWeek;
+        } catch (e) {
+            console.error('Error loading reminder settings:', e);
+        }
+    },
+
+    // Save reminder settings
+    saveReminderSettings() {
+        this.reminderSettings = {
+            oneHour: document.getElementById('reminder1Hour')?.checked ?? true,
+            oneDay: document.getElementById('reminder1Day')?.checked ?? true,
+            threeDays: document.getElementById('reminder3Days')?.checked ?? false,
+            oneWeek: document.getElementById('reminder1Week')?.checked ?? false
+        };
+        try {
+            localStorage.setItem('bidReminderSettings', JSON.stringify(this.reminderSettings));
+        } catch (e) {
+            console.error('Error saving reminder settings:', e);
+        }
+    },
+
+    // Handle deep link from BidCalendar AI
+    handleDeepLink() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('source') === 'bidcalendar') {
+            // Switch to bids tab
+            document.querySelector('[data-tab="bids"]')?.click();
+
+            // Pre-fill the form
+            const projectName = params.get('project');
+            const agency = params.get('agency');
+            const bidDue = params.get('bidDue');
+            const rfiDue = params.get('rfiDue');
+            const siteVisit = params.get('siteVisit');
+
+            if (projectName) document.getElementById('bidProjectName').value = projectName;
+            if (agency) document.getElementById('bidClient').value = agency;
+            if (bidDue) document.getElementById('bidDueDate').value = bidDue;
+            if (rfiDue) document.getElementById('bidRfiDate').value = rfiDue;
+            if (siteVisit) document.getElementById('bidSiteVisit').value = siteVisit;
+
+            this.showToast('Data imported from BidCalendar AI!', 'success');
+
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    },
+
+    // Bind lead time events
+    bindLeadTimeEvents() {
+        // Toggle lead time panel
+        document.getElementById('leadTimeToggle')?.addEventListener('click', () => {
+            const body = document.getElementById('leadTimeBody');
+            const toggle = document.getElementById('leadTimeToggle');
+            if (body && toggle) {
+                body.classList.toggle('collapsed');
+                toggle.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+            }
+        });
+
+        // Save lead times
+        document.getElementById('saveLeadTimes')?.addEventListener('click', () => {
+            this.leadTimes = {
+                scopeReview: parseInt(document.getElementById('leadScopeReview')?.value) || 10,
+                subBids: parseInt(document.getElementById('leadSubBids')?.value) || 7,
+                bidBond: parseInt(document.getElementById('leadBidBond')?.value) || 5,
+                addendum: parseInt(document.getElementById('leadAddendum')?.value) || 3,
+                finalize: parseInt(document.getElementById('leadFinalize')?.value) || 1,
+                rfi: parseInt(document.getElementById('leadRfi')?.value) || 1
+            };
+            this.saveLeadTimes();
+            this.renderDeadlines(); // Refresh deadlines with new settings
+        });
+
+        // Reminder checkboxes - auto-save on change
+        ['reminder1Hour', 'reminder1Day', 'reminder3Days', 'reminder1Week'].forEach(id => {
+            document.getElementById(id)?.addEventListener('change', () => this.saveReminderSettings());
+        });
+    },
+
+    // Bind chat events
+    bindChatEvents() {
+        const chatInput = document.getElementById('bidChatInput');
+        const chatSend = document.getElementById('bidChatSend');
+        const chatToggle = document.getElementById('bidChatToggle');
+
+        // Send chat message
+        chatSend?.addEventListener('click', () => this.sendChatMessage());
+        chatInput?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.sendChatMessage();
+        });
+
+        // Toggle chat panel
+        chatToggle?.addEventListener('click', () => {
+            const body = document.getElementById('bidChatBody');
+            if (body) {
+                body.classList.toggle('collapsed');
+                chatToggle.textContent = body.classList.contains('collapsed') ? '+' : '−';
+            }
+        });
+
+        // Suggested questions
+        document.getElementById('suggestedQuestions')?.addEventListener('click', (e) => {
+            if (e.target.tagName === 'LI') {
+                const question = e.target.dataset.question;
+                if (question && this.currentPdfText) {
+                    document.getElementById('bidChatInput').value = question;
+                    this.sendChatMessage();
+                }
+            }
+        });
+    },
+
+    // Send chat message to AI
+    async sendChatMessage() {
+        const input = document.getElementById('bidChatInput');
+        const message = input?.value.trim();
+
+        if (!message || !this.currentPdfText) {
+            this.showToast('Please upload a document first', 'warning');
+            return;
+        }
+
+        // Check if AI is configured
+        if (typeof AIService === 'undefined' || !AIService.isConfigured()) {
+            this.showToast('Please configure AI in Settings first', 'warning');
+            return;
+        }
+
+        // Add user message to chat
+        this.addChatMessage('user', message);
+        input.value = '';
+
+        // Add thinking indicator
+        const thinkingId = this.addChatMessage('assistant', '...', true);
+
+        try {
+            const response = await AIService.askAboutDocument(this.currentPdfText, message);
+            // Replace thinking message with actual response
+            this.updateChatMessage(thinkingId, response);
+        } catch (error) {
+            console.error('Chat error:', error);
+            this.updateChatMessage(thinkingId, 'Sorry, I encountered an error. Please try again.');
+        }
+    },
+
+    // Add message to chat
+    addChatMessage(role, text, isThinking = false) {
+        const messagesContainer = document.getElementById('bidChatMessages');
+        if (!messagesContainer) return null;
+
+        const messageId = `chat-${Date.now()}`;
+        const messageDiv = document.createElement('div');
+        messageDiv.id = messageId;
+        messageDiv.className = `chat-message ${role}${isThinking ? ' thinking' : ''}`;
+        messageDiv.innerHTML = `
+            <div class="chat-message-content">
+                ${isThinking ? '<span class="thinking-dots">...</span>' : this.escapeHtml(text)}
+            </div>
+        `;
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        // Hide welcome message
+        const welcome = messagesContainer.querySelector('.chat-welcome');
+        if (welcome) welcome.style.display = 'none';
+
+        return messageId;
+    },
+
+    // Update existing chat message
+    updateChatMessage(messageId, newText) {
+        const messageDiv = document.getElementById(messageId);
+        if (messageDiv) {
+            messageDiv.classList.remove('thinking');
+            messageDiv.querySelector('.chat-message-content').innerHTML = this.escapeHtml(newText);
+        }
+    },
+
+    // Enable chat after PDF upload
+    enableChat() {
+        const input = document.getElementById('bidChatInput');
+        const send = document.getElementById('bidChatSend');
+        if (input) input.disabled = false;
+        if (send) send.disabled = false;
+    },
+
+    // Generate email RSVP for site visit
+    generateEmailRSVP(bidId) {
+        const bid = this.bids.find(b => b.id === bidId);
+        if (!bid || !bid.siteVisit) {
+            this.showToast('No site visit date set for this bid', 'warning');
+            return;
+        }
+
+        const subject = encodeURIComponent(`RSVP: ${bid.projectName} - Site Visit`);
+        const body = encodeURIComponent(
+            `To Whom It May Concern,\n\n` +
+            `I would like to RSVP for the site visit for the project "${bid.projectName}" ` +
+            `with ${bid.client}.\n\n` +
+            `Site Visit Date: ${this.formatDateTime(bid.siteVisit)}\n\n` +
+            `Please confirm my attendance.\n\n` +
+            `Thank you.`
+        );
+
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+        this.showToast('Email client opened!', 'success');
     },
 
     // Bind all event listeners
@@ -162,6 +442,10 @@ const BidTracker = {
         // Extract text from PDF
         try {
             const text = await this.extractTextFromPDF(file);
+
+            // Store PDF text for AI chat
+            this.currentPdfText = text;
+            this.enableChat();
 
             // Try AI extraction first, fall back to regex
             if (typeof AIService !== 'undefined' && AIService.isConfigured()) {
@@ -739,6 +1023,9 @@ const BidTracker = {
                             <button class="bid-action-btn ai-predict" onclick="BidTracker.predictBidSuccess(${bid.id})" title="AI Success Prediction">
                                 🔮
                             </button>
+                            ${bid.siteVisit ? `<button class="bid-action-btn rsvp-btn" onclick="BidTracker.generateEmailRSVP(${bid.id})" title="Send RSVP email">
+                                📧
+                            </button>` : ''}
                             <button class="bid-action-btn download-ics" onclick="BidTracker.downloadICS(${bid.id})" title="Download calendar events">
                                 ICS
                             </button>
@@ -777,30 +1064,75 @@ const BidTracker = {
                         bidId: bid.id
                     });
 
-                    // Internal: Finalize Bid Package - day before at 12 PM
-                    const finalizeBid = new Date(dueDate);
-                    finalizeBid.setDate(finalizeBid.getDate() - 1);
-                    finalizeBid.setHours(12, 0, 0, 0);
-                    if (finalizeBid > now) {
+                    // Internal: Scope Review - configurable days before
+                    const scopeReview = new Date(dueDate);
+                    scopeReview.setDate(scopeReview.getDate() - this.leadTimes.scopeReview);
+                    scopeReview.setHours(9, 0, 0, 0);
+                    if (scopeReview > now) {
                         deadlines.push({
-                            date: finalizeBid,
+                            date: scopeReview,
                             type: 'internal',
-                            title: 'Finalize Bid Package & Checklist',
+                            title: 'Scope Review Deadline',
                             project: bid.projectName,
                             bidId: bid.id,
                             internal: true
                         });
                     }
 
-                    // Internal: Secure Bid Bond - 3 days before at 9 AM
+                    // Internal: Subcontractor Bids Due - configurable days before
+                    const subBids = new Date(dueDate);
+                    subBids.setDate(subBids.getDate() - this.leadTimes.subBids);
+                    subBids.setHours(14, 0, 0, 0);
+                    if (subBids > now) {
+                        deadlines.push({
+                            date: subBids,
+                            type: 'internal',
+                            title: 'Subcontractor Bids Due',
+                            project: bid.projectName,
+                            bidId: bid.id,
+                            internal: true
+                        });
+                    }
+
+                    // Internal: Secure Bid Bond - configurable days before
                     const bidBond = new Date(dueDate);
-                    bidBond.setDate(bidBond.getDate() - 3);
+                    bidBond.setDate(bidBond.getDate() - this.leadTimes.bidBond);
                     bidBond.setHours(9, 0, 0, 0);
                     if (bidBond > now) {
                         deadlines.push({
                             date: bidBond,
                             type: 'internal',
                             title: 'Secure Bid Bond',
+                            project: bid.projectName,
+                            bidId: bid.id,
+                            internal: true
+                        });
+                    }
+
+                    // Internal: Addendum Check - configurable days before
+                    const addendumCheck = new Date(dueDate);
+                    addendumCheck.setDate(addendumCheck.getDate() - this.leadTimes.addendum);
+                    addendumCheck.setHours(12, 0, 0, 0);
+                    if (addendumCheck > now) {
+                        deadlines.push({
+                            date: addendumCheck,
+                            type: 'internal',
+                            title: 'Final Addendum Check',
+                            project: bid.projectName,
+                            bidId: bid.id,
+                            internal: true
+                        });
+                    }
+
+                    // Internal: Finalize Bid Package - configurable days before
+                    const finalizeBid = new Date(dueDate);
+                    finalizeBid.setDate(finalizeBid.getDate() - this.leadTimes.finalize);
+                    finalizeBid.setHours(12, 0, 0, 0);
+                    if (finalizeBid > now) {
+                        deadlines.push({
+                            date: finalizeBid,
+                            type: 'internal',
+                            title: 'Finalize Bid Package & Checklist',
                             project: bid.projectName,
                             bidId: bid.id,
                             internal: true
@@ -835,9 +1167,9 @@ const BidTracker = {
                         bidId: bid.id
                     });
 
-                    // Internal: Finalize RFI - day before at 12 PM
+                    // Internal: Finalize RFI - configurable days before
                     const finalizeRfi = new Date(rfiDate);
-                    finalizeRfi.setDate(finalizeRfi.getDate() - 1);
+                    finalizeRfi.setDate(finalizeRfi.getDate() - this.leadTimes.rfi);
                     finalizeRfi.setHours(12, 0, 0, 0);
                     if (finalizeRfi > now) {
                         deadlines.push({
@@ -1005,8 +1337,19 @@ const BidTracker = {
     },
 
     // Generate all events for a bid
+    // Build alarms array based on reminder settings
+    buildAlarms() {
+        const alarms = [];
+        if (this.reminderSettings.oneHour) alarms.push({ trigger: '-PT1H' });
+        if (this.reminderSettings.oneDay) alarms.push({ trigger: '-P1D' });
+        if (this.reminderSettings.threeDays) alarms.push({ trigger: '-P3D' });
+        if (this.reminderSettings.oneWeek) alarms.push({ trigger: '-P7D' });
+        return alarms.length > 0 ? alarms : [{ trigger: '-PT1H' }]; // Default to 1 hour
+    },
+
     generateEvents(bid) {
         const events = [];
+        const alarms = this.buildAlarms();
 
         // 1. Bid Due Date
         if (bid.dueDate) {
@@ -1017,30 +1360,41 @@ const BidTracker = {
                 description: this.buildDescription(bid, 'Bid submission deadline'),
                 start: dueDate,
                 end: new Date(dueDate.getTime() + 60 * 60 * 1000),
-                alarms: [
-                    { trigger: '-P1D' },
-                    { trigger: '-PT1H' }
-                ],
+                alarms: alarms,
                 priority: 1
             });
 
-            // Internal: Finalize Bid Package - day before at 12 PM
-            const finalizeBid = new Date(dueDate);
-            finalizeBid.setDate(finalizeBid.getDate() - 1);
-            finalizeBid.setHours(12, 0, 0, 0);
+            // Internal: Scope Review - configurable days before
+            const scopeReview = new Date(dueDate);
+            scopeReview.setDate(scopeReview.getDate() - this.leadTimes.scopeReview);
+            scopeReview.setHours(9, 0, 0, 0);
             events.push({
-                uid: `finalize-bid-${bid.id}`,
-                summary: `Finalize Bid Package & Checklist: ${bid.projectName}`,
-                description: `INTERNAL REMINDER\n\nComplete final review of:\n- Bid documents\n- Qualification package\n- All required forms\n- Signatures\n\nProject: ${bid.projectName}\nClient: ${bid.client}`,
-                start: finalizeBid,
-                end: new Date(finalizeBid.getTime() + 2 * 60 * 60 * 1000),
+                uid: `scope-review-${bid.id}`,
+                summary: `Scope Review Deadline: ${bid.projectName}`,
+                description: `INTERNAL REMINDER\n\nComplete scope review including:\n- Review all bid documents\n- Identify scope gaps\n- Note clarification questions\n\nProject: ${bid.projectName}\nClient: ${bid.client}`,
+                start: scopeReview,
+                end: new Date(scopeReview.getTime() + 2 * 60 * 60 * 1000),
                 alarms: [{ trigger: '-PT1H' }],
                 priority: 2
             });
 
-            // Internal: Secure Bid Bond - 3 days before at 9 AM
+            // Internal: Subcontractor Bids Due - configurable days before
+            const subBids = new Date(dueDate);
+            subBids.setDate(subBids.getDate() - this.leadTimes.subBids);
+            subBids.setHours(14, 0, 0, 0);
+            events.push({
+                uid: `sub-bids-${bid.id}`,
+                summary: `Subcontractor Bids Due: ${bid.projectName}`,
+                description: `INTERNAL REMINDER\n\nCollect all subcontractor quotes:\n- Verify coverage for all scopes\n- Review pricing\n- Confirm availability\n\nProject: ${bid.projectName}\nClient: ${bid.client}`,
+                start: subBids,
+                end: new Date(subBids.getTime() + 2 * 60 * 60 * 1000),
+                alarms: [{ trigger: '-P1D' }, { trigger: '-PT1H' }],
+                priority: 2
+            });
+
+            // Internal: Secure Bid Bond - configurable days before
             const bidBond = new Date(dueDate);
-            bidBond.setDate(bidBond.getDate() - 3);
+            bidBond.setDate(bidBond.getDate() - this.leadTimes.bidBond);
             bidBond.setHours(9, 0, 0, 0);
             events.push({
                 uid: `bid-bond-${bid.id}`,
@@ -1049,6 +1403,34 @@ const BidTracker = {
                 start: bidBond,
                 end: new Date(bidBond.getTime() + 60 * 60 * 1000),
                 alarms: [{ trigger: '-P1D' }, { trigger: '-PT1H' }],
+                priority: 2
+            });
+
+            // Internal: Addendum Check - configurable days before
+            const addendumCheck = new Date(dueDate);
+            addendumCheck.setDate(addendumCheck.getDate() - this.leadTimes.addendum);
+            addendumCheck.setHours(12, 0, 0, 0);
+            events.push({
+                uid: `addendum-check-${bid.id}`,
+                summary: `Final Addendum Check: ${bid.projectName}`,
+                description: `INTERNAL REMINDER\n\nVerify all addenda received and incorporated:\n- Check agency website\n- Review all addenda\n- Update estimate if needed\n\nProject: ${bid.projectName}\nClient: ${bid.client}`,
+                start: addendumCheck,
+                end: new Date(addendumCheck.getTime() + 60 * 60 * 1000),
+                alarms: [{ trigger: '-PT1H' }],
+                priority: 2
+            });
+
+            // Internal: Finalize Bid Package - configurable days before
+            const finalizeBid = new Date(dueDate);
+            finalizeBid.setDate(finalizeBid.getDate() - this.leadTimes.finalize);
+            finalizeBid.setHours(12, 0, 0, 0);
+            events.push({
+                uid: `finalize-bid-${bid.id}`,
+                summary: `Finalize Bid Package & Checklist: ${bid.projectName}`,
+                description: `INTERNAL REMINDER\n\nComplete final review of:\n- Bid documents\n- Qualification package\n- All required forms\n- Signatures\n- Bond attached\n\nProject: ${bid.projectName}\nClient: ${bid.client}`,
+                start: finalizeBid,
+                end: new Date(finalizeBid.getTime() + 2 * 60 * 60 * 1000),
+                alarms: [{ trigger: '-PT1H' }],
                 priority: 2
             });
         }
@@ -1062,7 +1444,7 @@ const BidTracker = {
                 description: this.buildDescription(bid, 'Pre-bid meeting/conference'),
                 start: preBidDate,
                 end: new Date(preBidDate.getTime() + 2 * 60 * 60 * 1000),
-                alarms: [{ trigger: '-P1D' }, { trigger: '-PT1H' }],
+                alarms: alarms,
                 priority: 2
             });
         }
@@ -1076,13 +1458,13 @@ const BidTracker = {
                 description: this.buildDescription(bid, 'Questions/RFI submission deadline'),
                 start: rfiDate,
                 end: new Date(rfiDate.getTime() + 60 * 60 * 1000),
-                alarms: [{ trigger: '-P1D' }, { trigger: '-PT1H' }],
+                alarms: alarms,
                 priority: 2
             });
 
-            // Internal: Finalize RFI - day before at 12 PM
+            // Internal: Finalize RFI - configurable days before
             const finalizeRfi = new Date(rfiDate);
-            finalizeRfi.setDate(finalizeRfi.getDate() - 1);
+            finalizeRfi.setDate(finalizeRfi.getDate() - this.leadTimes.rfi);
             finalizeRfi.setHours(12, 0, 0, 0);
             events.push({
                 uid: `finalize-rfi-${bid.id}`,
@@ -1104,7 +1486,7 @@ const BidTracker = {
                 description: this.buildDescription(bid, 'Project site visit'),
                 start: siteVisitDate,
                 end: new Date(siteVisitDate.getTime() + 2 * 60 * 60 * 1000),
-                alarms: [{ trigger: '-P1D' }, { trigger: '-PT1H' }],
+                alarms: alarms,
                 priority: 3
             });
         }

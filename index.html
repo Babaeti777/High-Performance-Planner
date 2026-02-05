@@ -1003,6 +1003,86 @@
                             <!-- Deadlines rendered here -->
                         </div>
                     </div>
+
+                    <!-- AI Chat Sidebar for Bid Documents -->
+                    <div class="bid-chat-sidebar" id="bidChatSidebar">
+                        <div class="bid-chat-header">
+                            <h4>🤖 Ask AI About Document</h4>
+                            <button class="bid-chat-toggle" id="bidChatToggle" title="Toggle Chat">−</button>
+                        </div>
+                        <div class="bid-chat-body" id="bidChatBody">
+                            <div class="bid-chat-messages" id="bidChatMessages">
+                                <div class="chat-welcome">
+                                    <p>Upload an ITB document and ask questions about it:</p>
+                                    <ul class="suggested-questions" id="suggestedQuestions">
+                                        <li data-question="What are the liquidated damages?">What are the liquidated damages?</li>
+                                        <li data-question="Is there a DBE/MBE requirement?">Is there a DBE/MBE requirement?</li>
+                                        <li data-question="What are the bonding requirements?">What are the bonding requirements?</li>
+                                        <li data-question="Are there any addenda?">Are there any addenda?</li>
+                                        <li data-question="What is the project duration?">What is the project duration?</li>
+                                        <li data-question="What are the insurance requirements?">What are the insurance requirements?</li>
+                                        <li data-question="What are the payment terms?">What are the payment terms?</li>
+                                        <li data-question="Is there a prequalification requirement?">Is there a prequalification requirement?</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="bid-chat-input">
+                                <input type="text" id="bidChatInput" placeholder="Ask a question about the document..." disabled>
+                                <button class="btn btn-primary" id="bidChatSend" disabled>Send</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lead Time Settings Panel -->
+                    <div class="lead-time-settings" id="leadTimeSettings">
+                        <div class="lead-time-header">
+                            <h4>⚙️ Internal Milestone Settings</h4>
+                            <button class="lead-time-toggle" id="leadTimeToggle">▼</button>
+                        </div>
+                        <div class="lead-time-body" id="leadTimeBody">
+                            <p class="lead-time-desc">Configure how many days before the bid deadline to set internal reminders:</p>
+                            <div class="lead-time-grid">
+                                <div class="lead-time-item">
+                                    <label>Scope Review</label>
+                                    <input type="number" id="leadScopeReview" value="10" min="1" max="30"> days before
+                                </div>
+                                <div class="lead-time-item">
+                                    <label>Subcontractor Bids Due</label>
+                                    <input type="number" id="leadSubBids" value="7" min="1" max="30"> days before
+                                </div>
+                                <div class="lead-time-item">
+                                    <label>Secure Bid Bond</label>
+                                    <input type="number" id="leadBidBond" value="5" min="1" max="30"> days before
+                                </div>
+                                <div class="lead-time-item">
+                                    <label>Addendum Check</label>
+                                    <input type="number" id="leadAddendum" value="3" min="1" max="30"> days before
+                                </div>
+                                <div class="lead-time-item">
+                                    <label>Finalize Bid Package</label>
+                                    <input type="number" id="leadFinalize" value="1" min="1" max="30"> days before
+                                </div>
+                                <div class="lead-time-item">
+                                    <label>Finalize RFI</label>
+                                    <input type="number" id="leadRfi" value="1" min="1" max="30"> days before RFI
+                                </div>
+                            </div>
+                            <button class="btn btn-sm btn-primary" id="saveLeadTimes">Save Settings</button>
+                        </div>
+                    </div>
+
+                    <!-- ICS Reminder Settings -->
+                    <div class="ics-reminder-settings" id="icsReminderSettings">
+                        <div class="ics-reminder-header">
+                            <h4>🔔 ICS Reminder Settings</h4>
+                        </div>
+                        <div class="ics-reminder-body">
+                            <label><input type="checkbox" id="reminder1Hour" checked> 1 Hour Before</label>
+                            <label><input type="checkbox" id="reminder1Day" checked> 1 Day Before</label>
+                            <label><input type="checkbox" id="reminder3Days"> 3 Days Before</label>
+                            <label><input type="checkbox" id="reminder1Week"> 1 Week Before</label>
+                        </div>
+                    </div>
                 </div>
             </div>
 
