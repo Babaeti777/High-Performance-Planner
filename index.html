@@ -30,6 +30,7 @@
                     <span class="logo-text">Planner</span>
                 </div>
                 <button class="sidebar-close" id="sidebarClose">×</button>
+                <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Collapse sidebar">«</button>
             </div>
 
             <nav class="sidebar-nav">
@@ -736,6 +737,102 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- AI Settings -->
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">
+                            <span class="settings-icon">🤖</span>
+                            AI Integration (BidCalendar AI)
+                        </h3>
+                        <div class="settings-card">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label>AI Provider</label>
+                                    <p class="setting-description">Choose your AI provider for smart features</p>
+                                </div>
+                                <div class="setting-control">
+                                    <select id="aiProvider" class="settings-select">
+                                        <option value="claude">Claude (Anthropic) - Recommended</option>
+                                        <option value="gemini">Gemini (Google)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label>AI Model</label>
+                                    <p class="setting-description">Select the model (affects cost and quality)</p>
+                                </div>
+                                <div class="setting-control">
+                                    <select id="aiModel" class="settings-select">
+                                        <optgroup label="Claude Models" id="claudeModels">
+                                            <option value="claude-3-haiku-20240307">Haiku (Fast & Cheap ~$0.006/doc)</option>
+                                            <option value="claude-3-5-sonnet-20241022">Sonnet (Best Quality ~$0.03/doc)</option>
+                                        </optgroup>
+                                        <optgroup label="Gemini Models" id="geminiModels">
+                                            <option value="gemini-2.0-flash">2.0 Flash (Cheapest ~$0.002/doc)</option>
+                                            <option value="gemini-1.5-pro">1.5 Pro (Better ~$0.01/doc)</option>
+                                        </optgroup>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label>API Key</label>
+                                    <p class="setting-description">Your API key (stored locally, never sent to our servers)</p>
+                                </div>
+                                <div class="setting-control">
+                                    <input type="password" id="aiApiKey" class="settings-input" placeholder="sk-... or AIza...">
+                                    <button id="toggleAiKeyVisibility" class="btn btn-icon" title="Show/Hide">👁️</button>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label>AI Status</label>
+                                    <p class="setting-description">Test your AI connection</p>
+                                </div>
+                                <div class="setting-control">
+                                    <div id="aiStatus" class="settings-status disconnected">
+                                        <span class="status-indicator"></span>
+                                        <span class="status-label">Not configured</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="setting-actions">
+                                <button id="saveAiSettings" class="btn btn-primary">Save AI Settings</button>
+                                <button id="testAiConnection" class="btn btn-secondary">Test Connection</button>
+                            </div>
+                            <div class="settings-help">
+                                <details>
+                                    <summary>How to get an API key?</summary>
+                                    <div class="api-help-content">
+                                        <h4>For Claude (Anthropic):</h4>
+                                        <ol>
+                                            <li>Go to <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></li>
+                                            <li>Sign up or log in</li>
+                                            <li>Navigate to API Keys</li>
+                                            <li>Create a new key and copy it</li>
+                                        </ol>
+                                        <h4>For Gemini (Google):</h4>
+                                        <ol>
+                                            <li>Go to <a href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a></li>
+                                            <li>Sign in with your Google account</li>
+                                            <li>Click "Create API Key"</li>
+                                            <li>Copy the key</li>
+                                        </ol>
+                                    </div>
+                                </details>
+                            </div>
+                            <div class="ai-features-preview">
+                                <h4>AI Features Enabled:</h4>
+                                <ul class="ai-feature-list">
+                                    <li><span class="feature-icon">📄</span> Smart PDF bid extraction</li>
+                                    <li><span class="feature-icon">📊</span> Bid success prediction</li>
+                                    <li><span class="feature-icon">🎯</span> Auto task prioritization</li>
+                                    <li><span class="feature-icon">📅</span> Smart scheduling</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1040,6 +1137,7 @@
         </aside>
     </div>
 
+    <script src="js/services/ai-service.js"></script>
     <script src="app.js"></script>
     <script src="js/services/bid-tracker.js"></script>
 </body>
