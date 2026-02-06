@@ -23,45 +23,46 @@
         </button>
         <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-        <aside class="sidebar" id="sidebar">
+        <!-- Minimal Sidebar (Collapsed by default) -->
+        <aside class="sidebar collapsed" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
                     <span class="logo-icon">📅</span>
                     <span class="logo-text">Planner</span>
                 </div>
                 <button class="sidebar-close" id="sidebarClose">×</button>
-                <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Collapse sidebar">«</button>
+                <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Expand sidebar">»</button>
             </div>
 
             <nav class="sidebar-nav">
-                <button class="nav-item active" data-tab="home">
+                <button class="nav-item active" data-tab="home" title="Home">
                     <span class="nav-icon">🏠</span>
                     <span class="nav-text">Home</span>
                 </button>
-                <button class="nav-item" data-tab="eisenhower">
+                <button class="nav-item" data-tab="eisenhower" title="Prioritize Tasks">
                     <span class="nav-icon">🎯</span>
                     <span class="nav-text">Prioritize</span>
                 </button>
-                <button class="nav-item" data-tab="calendar">
+                <button class="nav-item" data-tab="calendar" title="Calendar">
                     <span class="nav-icon">📆</span>
                     <span class="nav-text">Calendar</span>
                 </button>
-                <button class="nav-item" data-tab="notes">
+                <button class="nav-item" data-tab="notes" title="Notes">
                     <span class="nav-icon">📝</span>
                     <span class="nav-text">Notes</span>
                 </button>
-                <button class="nav-item" data-tab="settings">
-                    <span class="nav-icon">⚙️</span>
-                    <span class="nav-text">Settings</span>
-                </button>
-                <button class="nav-item" data-tab="bids">
+                <button class="nav-item" data-tab="bids" title="Bid Tracker">
                     <span class="nav-icon">📋</span>
                     <span class="nav-text">Bid Tracker</span>
                 </button>
+                <button class="nav-item" data-tab="settings" title="Settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-text">Settings</span>
+                </button>
             </nav>
 
-            <!-- Google Calendar Connection -->
-            <div class="google-calendar-section">
+            <!-- Hidden elements (functionality moved to home) -->
+            <div class="google-calendar-section" style="display:none;">
                 <div id="googleStatus" class="google-status disconnected">
                     <span class="status-dot"></span>
                     <span class="status-text">Not connected</span>
@@ -74,7 +75,7 @@
                 </button>
             </div>
 
-            <div class="sidebar-footer">
+            <div class="sidebar-footer" style="display:none;">
                 <button id="exportData" class="sidebar-btn">
                     <span>💾</span> <span>Export</span>
                 </button>
@@ -88,75 +89,157 @@
         <!-- Main Content Area -->
         <main class="main-content">
 
-            <!-- Home Tab - Welcome/Overview -->
+            <!-- Home Tab - Dashboard -->
             <div id="home" class="tab-content active">
-                <div class="home-welcome">
-                    <div class="welcome-header">
-                        <h1 id="greetingText">Good Morning! 👋</h1>
-                        <p class="welcome-date" id="welcomeDate"></p>
+                <div class="home-dashboard">
+                    <!-- Header with greeting and Google connection -->
+                    <div class="dashboard-header">
+                        <div class="welcome-header">
+                            <h1 id="greetingText">Good Morning! 👋</h1>
+                            <p class="welcome-date" id="welcomeDate"></p>
+                        </div>
+                        <div class="header-actions">
+                            <div id="googleStatusHome" class="google-status-mini disconnected">
+                                <span class="status-dot"></span>
+                                <span class="status-text">Google</span>
+                            </div>
+                            <button id="googleConnectHome" class="btn btn-sm btn-secondary">📅 Connect Google</button>
+                            <button id="settingsBtn" class="btn btn-sm btn-icon" title="Settings">⚙️</button>
+                        </div>
                     </div>
 
+                    <!-- Clickable Stats -->
                     <div class="quick-stats">
-                        <div class="stat-card-home">
+                        <div class="stat-card-home clickable" id="statTodayTasks" title="View today's tasks">
                             <span class="stat-icon">📋</span>
                             <div class="stat-info">
                                 <span class="stat-number" id="todayTaskCount">0</span>
                                 <span class="stat-label">Tasks Today</span>
                             </div>
                         </div>
-                        <div class="stat-card-home">
+                        <div class="stat-card-home clickable" id="statCompleted" title="View completed tasks">
                             <span class="stat-icon">✅</span>
                             <div class="stat-info">
                                 <span class="stat-number" id="completedTaskCount">0</span>
                                 <span class="stat-label">Completed</span>
                             </div>
                         </div>
-                        <div class="stat-card-home">
+                        <div class="stat-card-home clickable" id="statUrgent" title="View urgent tasks">
                             <span class="stat-icon">🎯</span>
                             <div class="stat-info">
                                 <span class="stat-number" id="urgentTaskCount">0</span>
                                 <span class="stat-label">Urgent</span>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="upcoming-section">
-                        <h3>⏰ Coming Up Next</h3>
-                        <div class="upcoming-list" id="upcomingList">
-                            <!-- Populated dynamically -->
+                        <div class="stat-card-home clickable" id="statBids" title="View bid tracker">
+                            <span class="stat-icon">📋</span>
+                            <div class="stat-info">
+                                <span class="stat-number" id="activeBidCount">0</span>
+                                <span class="stat-label">Active Bids</span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="quick-actions">
-                        <button class="quick-action-btn" data-tab="eisenhower">
-                            <span>🎯</span>
-                            <span>Add Tasks</span>
-                        </button>
-                        <button class="quick-action-btn" data-tab="calendar">
-                            <span>📆</span>
-                            <span>View Calendar</span>
-                        </button>
-                        <button class="quick-action-btn" id="quickAddRoutine">
-                            <span>⚙️</span>
-                            <span>Manage Routines</span>
-                        </button>
-                        <button class="quick-action-btn ai-btn" id="smartScheduleBtn">
-                            <span>🤖</span>
-                            <span>AI Schedule</span>
-                        </button>
+                    <!-- Main Dashboard Grid -->
+                    <div class="dashboard-grid">
+                        <!-- Upcoming Tasks Section -->
+                        <div class="dashboard-card upcoming-card">
+                            <div class="card-header">
+                                <h3>⏰ Coming Up Next</h3>
+                                <button class="btn btn-sm" id="viewCalendarBtn">View Calendar</button>
+                            </div>
+                            <div class="upcoming-list" id="upcomingList">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Quick Actions Grid -->
+                        <div class="dashboard-card actions-card">
+                            <div class="card-header">
+                                <h3>🚀 Quick Actions</h3>
+                            </div>
+                            <div class="quick-actions-grid">
+                                <button class="action-tile" id="openMatrixBtn">
+                                    <span class="tile-icon">🎯</span>
+                                    <span class="tile-label">Prioritize Tasks</span>
+                                </button>
+                                <button class="action-tile" id="openCalendarBtn">
+                                    <span class="tile-icon">📆</span>
+                                    <span class="tile-label">Calendar</span>
+                                </button>
+                                <button class="action-tile" id="openBidsBtn">
+                                    <span class="tile-icon">📋</span>
+                                    <span class="tile-label">Bid Tracker</span>
+                                </button>
+                                <button class="action-tile" id="openNotesBtn">
+                                    <span class="tile-icon">📝</span>
+                                    <span class="tile-label">Notes</span>
+                                </button>
+                                <button class="action-tile" id="quickAddRoutine">
+                                    <span class="tile-icon">🔄</span>
+                                    <span class="tile-label">Routines</span>
+                                </button>
+                                <button class="action-tile ai-tile" id="smartScheduleBtn">
+                                    <span class="tile-icon">🤖</span>
+                                    <span class="tile-label">AI Schedule</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Routines Quick View -->
+                        <div class="dashboard-card routines-card">
+                            <div class="card-header">
+                                <h3>🔄 Daily Routines</h3>
+                                <button class="btn btn-sm btn-primary" id="addRoutineBtn">+ Add</button>
+                            </div>
+                            <div class="routines-quick-list" id="routinesQuickList">
+                                <!-- Routines rendered here -->
+                            </div>
+                        </div>
+
+                        <!-- Data Management -->
+                        <div class="dashboard-card data-card">
+                            <div class="card-header">
+                                <h3>💾 Data</h3>
+                            </div>
+                            <div class="data-actions">
+                                <button class="btn btn-secondary" id="exportDataHome">
+                                    <span>📤</span> Export
+                                </button>
+                                <button class="btn btn-secondary" id="importDataHome">
+                                    <span>📥</span> Import
+                                </button>
+                                <button class="btn btn-secondary" id="syncNowHome">
+                                    <span>🔄</span> Sync Google
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Routines Management Panel -->
+                <!-- Routines Management Panel (Modal) -->
                 <div class="routines-modal-panel hidden" id="routinesPanel">
                     <div class="routines-panel-content">
                         <div class="routines-panel-header">
                             <h3>📋 Daily Routines</h3>
-                            <button class="btn btn-primary btn-sm" id="addRoutineBtn">+ Add</button>
+                            <button class="btn btn-primary btn-sm" id="addRoutineBtnModal">+ Add</button>
                             <button class="close-panel-btn" id="closeRoutinesPanel">×</button>
                         </div>
                         <div class="routines-list-full" id="routinesList">
                             <!-- Routines rendered here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Panel (Inline) -->
+                <div class="settings-panel hidden" id="settingsPanel">
+                    <div class="settings-panel-content">
+                        <div class="settings-panel-header">
+                            <h3>⚙️ Settings</h3>
+                            <button class="close-panel-btn" id="closeSettingsPanel">×</button>
+                        </div>
+                        <div class="settings-panel-body" id="settingsPanelBody">
+                            <!-- Settings content loaded here -->
                         </div>
                     </div>
                 </div>
@@ -287,7 +370,11 @@
                             <button class="view-tab" data-view="week">Week View</button>
                         </div>
                         <div class="day-week-title">
-                            <h3 id="dayWeekTitle">January 1, 2026</h3>
+                            <div class="day-navigation">
+                                <button id="prevDayBtn" class="btn btn-nav" title="Previous Day">←</button>
+                                <h3 id="dayWeekTitle">January 1, 2026</h3>
+                                <button id="nextDayBtn" class="btn btn-nav" title="Next Day">→</button>
+                            </div>
                         </div>
                         <div class="day-week-actions">
                             <button class="btn btn-secondary" id="openMatrixFromDay">🎯 Open Matrix</button>
@@ -1213,14 +1300,25 @@
                     </div>
                 </div>
 
-                <!-- Quick Routine List -->
-                <div class="sidebar-routines">
-                    <div class="sidebar-routines-header">
-                        <span>Today's Routines</span>
-                        <button class="btn-icon" id="sidebarManageRoutines" title="Manage">⚙️</button>
+                <!-- Priority Tasks Queue -->
+                <div class="sidebar-tasks">
+                    <div class="sidebar-tasks-header">
+                        <span>🔥 Priority Queue</span>
                     </div>
-                    <div class="sidebar-routines-list" id="sidebarRoutinesList">
-                        <!-- Routines rendered here -->
+                    <div class="sidebar-tasks-list" id="sidebarTasksList">
+                        <!-- High priority tasks first, then medium, then low -->
+                        <div class="priority-section" id="urgentTasks">
+                            <div class="priority-label urgent">Do First</div>
+                            <div class="priority-tasks" id="urgentTasksList"></div>
+                        </div>
+                        <div class="priority-section" id="scheduleTasks">
+                            <div class="priority-label schedule">Schedule</div>
+                            <div class="priority-tasks" id="scheduleTasksList"></div>
+                        </div>
+                        <div class="priority-section" id="delegateTasks">
+                            <div class="priority-label delegate">Delegate</div>
+                            <div class="priority-tasks" id="delegateTasksList"></div>
+                        </div>
                     </div>
                 </div>
             </div>
