@@ -3605,15 +3605,25 @@ function initSettings() {
         function updateAiModelOptions() {
             const claudeModels = document.getElementById('claudeModels');
             const geminiModels = document.getElementById('geminiModels');
+            const groqModels = document.getElementById('groqModels');
+
+            // Hide all model groups first
+            if (claudeModels) claudeModels.style.display = 'none';
+            if (geminiModels) geminiModels.style.display = 'none';
+            if (groqModels) groqModels.style.display = 'none';
+
             if (aiProvider.value === 'claude') {
-                claudeModels.style.display = 'block';
-                geminiModels.style.display = 'none';
+                if (claudeModels) claudeModels.style.display = 'block';
                 if (!aiModel.value.startsWith('claude')) {
                     aiModel.value = 'claude-3-haiku-20240307';
                 }
+            } else if (aiProvider.value === 'groq') {
+                if (groqModels) groqModels.style.display = 'block';
+                if (!aiModel.value.startsWith('llama') && !aiModel.value.startsWith('mixtral')) {
+                    aiModel.value = 'llama-3.3-70b-versatile';
+                }
             } else {
-                claudeModels.style.display = 'none';
-                geminiModels.style.display = 'block';
+                if (geminiModels) geminiModels.style.display = 'block';
                 if (!aiModel.value.startsWith('gemini')) {
                     aiModel.value = 'gemini-2.0-flash';
                 }

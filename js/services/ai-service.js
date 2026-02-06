@@ -1,13 +1,13 @@
 // ==================== AI Service ====================
-// Supports Claude (Anthropic) and Gemini (Google) APIs
+// Supports Claude (Anthropic), Gemini (Google), and Groq (FREE!) APIs
 // Used for: PDF extraction, bid prediction, task priorities, smart scheduling
 
 const AIService = {
     // Configuration
     config: {
-        provider: localStorage.getItem('aiProvider') || 'claude', // 'claude' or 'gemini'
+        provider: localStorage.getItem('aiProvider') || 'groq', // 'claude', 'gemini', or 'groq'
         apiKey: localStorage.getItem('aiApiKey') || '',
-        model: localStorage.getItem('aiModel') || 'claude-3-haiku-20240307'
+        model: localStorage.getItem('aiModel') || 'llama-3.3-70b-versatile'
     },
 
     // Model options
@@ -19,6 +19,11 @@ const AIService = {
         gemini: [
             { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Cheapest)', costPer1k: 0.000075 },
             { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Better)', costPer1k: 0.00125 }
+        ],
+        groq: [
+            { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B (Best FREE)', costPer1k: 0 },
+            { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B (Fast FREE)', costPer1k: 0 },
+            { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B (FREE)', costPer1k: 0 }
         ]
     },
 
@@ -42,6 +47,8 @@ const AIService = {
 
         if (this.config.provider === 'claude') {
             return this.callClaude(prompt, systemPrompt);
+        } else if (this.config.provider === 'groq') {
+            return this.callGroq(prompt, systemPrompt);
         } else {
             return this.callGemini(prompt, systemPrompt);
         }
@@ -95,6 +102,36 @@ const AIService = {
 
         const data = await response.json();
         return data.candidates[0].content.parts[0].text;
+    },
+
+    // Groq API call (FREE!)
+    async callGroq(prompt, systemPrompt) {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.config.apiKey}`
+            },
+            body: JSON.stringify({
+                model: this.config.model,
+                max_tokens: 4096,
+                messages: [
+                    {
+                        role: 'system',
+                        content: systemPrompt || 'You are a helpful assistant specialized in construction bid analysis.'
+                    },
+                    { role: 'user', content: prompt }
+                ]
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error?.message || 'Groq API error');
+        }
+
+        const data = await response.json();
+        return data.choices[0].message.content;
     },
 
     // ==================== PDF Bid Extraction ====================
