@@ -649,8 +649,41 @@ function initDayWeekPopup() {
         renderWeekView();
     });
 
+    // Day navigation in popup
+    const prevDayBtn = document.getElementById('prevDayBtn');
+    const nextDayBtn = document.getElementById('nextDayBtn');
+
+    prevDayBtn?.addEventListener('click', () => {
+        const newDate = new Date(AppState.selectedDate);
+        newDate.setDate(newDate.getDate() - 1);
+        AppState.selectedDate = newDate;
+        updateDayWeekTitle();
+        renderDayView(newDate);
+    });
+
+    nextDayBtn?.addEventListener('click', () => {
+        const newDate = new Date(AppState.selectedDate);
+        newDate.setDate(newDate.getDate() + 1);
+        AppState.selectedDate = newDate;
+        updateDayWeekTitle();
+        renderDayView(newDate);
+    });
+
     // Generate time labels
     generateTimeLabels();
+}
+
+// Update day/week popup title
+function updateDayWeekTitle() {
+    const title = document.getElementById('dayWeekTitle');
+    if (title && AppState.selectedDate) {
+        title.textContent = AppState.selectedDate.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    }
 }
 
 function openDayWeekPopup(date) {
@@ -2800,6 +2833,16 @@ function updateHomeStats() {
         });
     });
     document.getElementById('urgentTaskCount').textContent = urgentCount;
+
+    // Update priority queue sidebar
+    if (typeof renderPriorityQueue === 'function') {
+        renderPriorityQueue();
+    }
+
+    // Update bid count
+    if (typeof updateBidCount === 'function') {
+        updateBidCount();
+    }
 }
 
 function renderUpcomingItems() {
@@ -4008,6 +4051,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadData();
     initTabs();
     initHomePage();
+    initDashboard();
     initCalendar();
     initDayWeekPopup();
     initTaskModal();
@@ -4019,4 +4063,180 @@ document.addEventListener('DOMContentLoaded', () => {
     initGoogleCalendar();
     initSettings();
     initKeyboardShortcuts();
+    renderPriorityQueue();
 });
+
+// ==================== Dashboard Initialization ====================
+function initDashboard() {
+    // Clickable stat cards
+    document.getElementById('statTodayTasks')?.addEventListener('click', () => {
+        openDayWeekPopup(new Date());
+    });
+
+    document.getElementById('statCompleted')?.addEventListener('click', () => {
+        document.querySelector('[data-tab="eisenhower"]')?.click();
+    });
+
+    document.getElementById('statUrgent')?.addEventListener('click', () => {
+        document.querySelector('[data-tab="eisenhower"]')?.click();
+    });
+
+    document.getElementById('statBids')?.addEventListener('click', () => {
+        document.querySelector('[data-tab="bids"]')?.click();
+    });
+
+    // Quick action tiles
+    document.getElementById('openMatrixBtn')?.addEventListener('click', () => {
+        document.querySelector('[data-tab="eisenhower"]')?.click();
+    });
+
+    document.getElementById('openCalendarBtn')?.addEventListener('click', () => {
+        document.querySelector('[data-tab="calendar"]')?.click();
+    });
+
+    document.getElementById('viewCalendarBtn')?.addEventListener('click', () => {
+        document.querySelector('[data-tab="calendar"]')?.click();
+    });
+
+    document.getElementById('openBidsBtn')?.addEventListener('click', () => {
+        document.querySelector('[data-tab="bids"]')?.click();
+    });
+
+    document.getElementById('openNotesBtn')?.addEventListener('click', () => {
+        document.querySelector('[data-tab="notes"]')?.click();
+    });
+
+    // Home page Google connection
+    document.getElementById('googleConnectHome')?.addEventListener('click', () => {
+        document.getElementById('googleConnectBtn')?.click();
+    });
+
+    document.getElementById('syncNowHome')?.addEventListener('click', () => {
+        document.getElementById('googleSyncBtn')?.click();
+    });
+
+    // Home page data actions
+    document.getElementById('exportDataHome')?.addEventListener('click', () => {
+        document.getElementById('exportData')?.click();
+    });
+
+    document.getElementById('importDataHome')?.addEventListener('click', () => {
+        document.getElementById('importData')?.click();
+    });
+
+    // Settings button
+    document.getElementById('settingsBtn')?.addEventListener('click', () => {
+        document.querySelector('[data-tab="settings"]')?.click();
+    });
+
+    // Update active bids count
+    updateBidCount();
+
+    // Render routines quick list
+    renderRoutinesQuickList();
+}
+
+// Update bid count on home page
+function updateBidCount() {
+    const bidCountEl = document.getElementById('activeBidCount');
+    if (bidCountEl && typeof BidTracker !== 'undefined') {
+        const activeBids = BidTracker.bids?.filter(b =>
+            ['researching', 'preparing'].includes(b.status)
+        ).length || 0;
+        bidCountEl.textContent = activeBids;
+    }
+}
+
+// Render routines quick list on home dashboard
+function renderRoutinesQuickList() {
+    const container = document.getElementById('routinesQuickList');
+    if (!container) return;
+
+    const routines = AppState.routines || [];
+    if (routines.length === 0) {
+        container.innerHTML = '<p class="empty-text" style="color: var(--text-muted); font-size: 13px;">No routines set up yet</p>';
+        return;
+    }
+
+    container.innerHTML = routines.slice(0, 5).map(r => `
+        <div class="routine-quick-item">
+            <span class="routine-time">${r.time}</span>
+            <span class="routine-name">${r.name}</span>
+        </div>
+    `).join('');
+}
+
+// Render priority queue in right sidebar
+function renderPriorityQueue() {
+    const urgentList = document.getElementById('urgentTasksList');
+    const scheduleList = document.getElementById('scheduleTasksList');
+    const delegateList = document.getElementById('delegateTasksList');
+
+    if (!urgentList || !scheduleList || !delegateList) return;
+
+    const today = formatDate(new Date());
+    const allTasks = [];
+
+    // Collect tasks from all quadrants
+    Object.entries(AppState.data.eisenhower || {}).forEach(([quadrant, tasks]) => {
+        tasks.forEach(task => {
+            if (!task.completed) {
+                allTasks.push({ ...task, quadrant });
+            }
+        });
+    });
+
+    // Sort by date, then by quadrant priority
+    const priorityOrder = {
+        'urgent-important': 1,
+        'not-urgent-important': 2,
+        'urgent-not-important': 3,
+        'not-urgent-not-important': 4
+    };
+
+    allTasks.sort((a, b) => {
+        // First by date
+        if (a.scheduledDate && b.scheduledDate) {
+            if (a.scheduledDate !== b.scheduledDate) {
+                return a.scheduledDate.localeCompare(b.scheduledDate);
+            }
+        }
+        // Then by priority
+        return priorityOrder[a.quadrant] - priorityOrder[b.quadrant];
+    });
+
+    // Group by priority level
+    const urgent = allTasks.filter(t => t.quadrant === 'urgent-important').slice(0, 5);
+    const schedule = allTasks.filter(t => t.quadrant === 'not-urgent-important').slice(0, 5);
+    const delegate = allTasks.filter(t => t.quadrant === 'urgent-not-important').slice(0, 5);
+
+    // Render function
+    const renderTask = (task) => `
+        <div class="priority-task-item" data-task-id="${task.id}" data-quadrant="${task.quadrant}">
+            <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''}>
+            <span class="task-name">${task.text}</span>
+            ${task.startTime ? `<span class="task-time">${task.startTime}</span>` : ''}
+        </div>
+    `;
+
+    urgentList.innerHTML = urgent.length ? urgent.map(renderTask).join('') : '<div class="empty-text" style="font-size:11px;color:var(--text-muted);">No urgent tasks</div>';
+    scheduleList.innerHTML = schedule.length ? schedule.map(renderTask).join('') : '<div class="empty-text" style="font-size:11px;color:var(--text-muted);">No scheduled tasks</div>';
+    delegateList.innerHTML = delegate.length ? delegate.map(renderTask).join('') : '<div class="empty-text" style="font-size:11px;color:var(--text-muted);">No delegate tasks</div>';
+
+    // Add click handlers for checkboxes
+    document.querySelectorAll('.priority-task-item .task-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', (e) => {
+            const item = e.target.closest('.priority-task-item');
+            const taskId = parseInt(item.dataset.taskId);
+            const quadrant = item.dataset.quadrant;
+
+            const task = AppState.data.eisenhower[quadrant]?.find(t => t.id === taskId);
+            if (task) {
+                task.completed = e.target.checked;
+                saveData();
+                renderPriorityQueue();
+                updateHomeStats();
+            }
+        });
+    });
+}
