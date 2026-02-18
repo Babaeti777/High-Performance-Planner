@@ -1409,8 +1409,46 @@ function showRandomMotivation() {
 
 // ==================== Eisenhower Matrix ====================
 function initEisenhowerMatrix() {
-    const addButtons = document.querySelectorAll('.add-matrix-task');
+    // Unified input state
+    let selectedQuadrant = 'urgent-important';
 
+    // Quadrant picker buttons
+    const quadrantPicks = document.querySelectorAll('.quadrant-pick');
+    quadrantPicks.forEach(btn => {
+        btn.addEventListener('click', () => {
+            quadrantPicks.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedQuadrant = btn.dataset.quadrant;
+        });
+    });
+
+    // Unified add handler
+    function addFromUnifiedInput() {
+        const input = document.getElementById('unifiedMatrixInput');
+        const durationInput = document.getElementById('unifiedMatrixDuration');
+        const scheduleInput = document.getElementById('unifiedMatrixSchedule');
+
+        const taskText = input?.value.trim();
+        if (!taskText) return;
+
+        const duration = parseFloat(durationInput?.value) || DEFAULT_DURATION;
+        const scheduledDate = scheduleInput?.value || null;
+
+        addEisenhowerTask(taskText, selectedQuadrant, duration, scheduledDate);
+
+        if (input) input.value = '';
+        if (durationInput) durationInput.value = '';
+        if (scheduleInput) scheduleInput.value = '';
+        input?.focus();
+    }
+
+    document.getElementById('unifiedAddMatrixTask')?.addEventListener('click', addFromUnifiedInput);
+    document.getElementById('unifiedMatrixInput')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addFromUnifiedInput();
+    });
+
+    // Legacy per-quadrant inputs (backward compat)
+    const addButtons = document.querySelectorAll('.add-matrix-task');
     addButtons.forEach(button => {
         button.addEventListener('click', () => {
             const quadrant = button.dataset.quadrant;
@@ -1418,57 +1456,63 @@ function initEisenhowerMatrix() {
             const durationInput = document.querySelector(`.matrix-duration[data-quadrant="${quadrant}"]`);
             const scheduleInput = document.querySelector(`.matrix-schedule[data-quadrant="${quadrant}"]`);
 
-            const taskText = input.value.trim();
+            const taskText = input?.value.trim();
             if (!taskText) return;
 
-            const duration = parseFloat(durationInput.value) || DEFAULT_DURATION;
-            const scheduledDate = scheduleInput.value || null;
+            const duration = parseFloat(durationInput?.value) || DEFAULT_DURATION;
+            const scheduledDate = scheduleInput?.value || null;
 
-            const newTask = {
-                id: Date.now() + Math.random(),
-                text: taskText,
-                completed: false,
-                quadrant: quadrant,
-                duration: duration,
-                scheduledDate: scheduledDate,
-                startTime: '09:00',
-                createdAt: new Date().toISOString()
-            };
+            addEisenhowerTask(taskText, quadrant, duration, scheduledDate);
 
-            AppState.data.eisenhower[quadrant].push(newTask);
-
-            // If scheduled, add to daily tasks for that date
-            if (scheduledDate) {
-                if (!AppState.data.daily[scheduledDate]) {
-                    AppState.data.daily[scheduledDate] = { tasks: [] };
-                }
-
-                AppState.data.daily[scheduledDate].tasks.push({
-                    id: newTask.id,
-                    text: taskText,
-                    completed: false,
-                    source: 'eisenhower',
-                    quadrant: quadrant,
-                    duration: duration,
-                    startTime: '09:00'
-                });
-            }
-
-            input.value = '';
-            durationInput.value = '';
-            scheduleInput.value = '';
-            saveData();
-            renderEisenhowerMatrix();
+            if (input) input.value = '';
+            if (durationInput) durationInput.value = '';
+            if (scheduleInput) scheduleInput.value = '';
         });
 
         const input = document.querySelector(`.matrix-input[data-quadrant="${button.dataset.quadrant}"]`);
-        input.addEventListener('keypress', (e) => {
+        input?.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 button.click();
             }
         });
     });
 
+    renderEisenhowerMatrix();
+}
+
+// Shared helper for adding eisenhower tasks
+function addEisenhowerTask(taskText, quadrant, duration, scheduledDate) {
+    const newTask = {
+        id: Date.now() + Math.random(),
+        text: taskText,
+        completed: false,
+        quadrant: quadrant,
+        duration: duration,
+        scheduledDate: scheduledDate,
+        startTime: '09:00',
+        createdAt: new Date().toISOString()
+    };
+
+    AppState.data.eisenhower[quadrant].push(newTask);
+
+    // If scheduled, add to daily tasks for that date
+    if (scheduledDate) {
+        if (!AppState.data.daily[scheduledDate]) {
+            AppState.data.daily[scheduledDate] = { tasks: [] };
+        }
+
+        AppState.data.daily[scheduledDate].tasks.push({
+            id: newTask.id,
+            text: taskText,
+            completed: false,
+            source: 'eisenhower',
+            quadrant: quadrant,
+            duration: duration,
+            startTime: '09:00'
+        });
+    }
+
+    saveData();
     renderEisenhowerMatrix();
 }
 
@@ -2562,6 +2606,11 @@ function initHomePage() {
         });
     });
 
+    // Home "Add Task" button - opens task modal for today
+    document.getElementById('homeAddTaskBtn')?.addEventListener('click', () => {
+        openTaskModal(new Date());
+    });
+
     document.getElementById('quickAddRoutine')?.addEventListener('click', () => {
         document.getElementById('routinesPanel')?.classList.remove('hidden');
     });
@@ -2593,9 +2642,6 @@ function initHomePage() {
 
 // Initialize schedule sidebar
 function initScheduleSidebar() {
-    // Render mini clock dots
-    renderMiniClockDots();
-
     // Render vertical timeline
     renderVerticalTimeline();
 
@@ -2786,9 +2832,11 @@ function updateHomeGreeting() {
 function updateHomeStats() {
     const today = formatDate(new Date());
     const todayTasks = AppState.data.daily[today]?.tasks || [];
+    const totalCount = todayTasks.length;
+    const completedCount = todayTasks.filter(t => t.completed).length;
 
-    document.getElementById('todayTaskCount').textContent = todayTasks.length;
-    document.getElementById('completedTaskCount').textContent = todayTasks.filter(t => t.completed).length;
+    document.getElementById('todayTaskCount').textContent = totalCount;
+    document.getElementById('completedTaskCount').textContent = completedCount;
 
     // Count urgent tasks
     let urgentCount = 0;
@@ -2800,6 +2848,17 @@ function updateHomeStats() {
         });
     });
     document.getElementById('urgentTaskCount').textContent = urgentCount;
+
+    // Update progress bar
+    const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+    const progressFill = document.getElementById('dailyProgressFill');
+    const progressFraction = document.getElementById('progressFraction');
+    if (progressFill) {
+        progressFill.style.width = `${progressPercent}%`;
+    }
+    if (progressFraction) {
+        progressFraction.textContent = `${completedCount}/${totalCount} tasks`;
+    }
 }
 
 function renderUpcomingItems() {

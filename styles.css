@@ -4870,3 +4870,341 @@ select:focus {
         height: 280px;
     }
 }
+
+/* ==================== UI Improvements ==================== */
+
+/* --- Daily Progress Card --- */
+.daily-progress-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+}
+
+.progress-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.progress-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.progress-fraction {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.daily-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+
+.daily-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: 4px;
+    transition: width 0.4s ease;
+}
+
+/* Stat Chips (compact version of stat cards) */
+.quick-stats {
+    display: flex;
+    gap: 12px;
+}
+
+.stat-chip {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 8px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.stat-chip .stat-number {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.stat-chip .stat-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.stat-chip.completed .stat-number { color: var(--accent-secondary); }
+.stat-chip.urgent .stat-number { color: var(--accent-danger); }
+
+/* --- Empty state hint --- */
+.empty-state-hint {
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 12px 0;
+}
+
+.empty-state-hint strong {
+    color: var(--text-secondary);
+}
+
+/* --- Primary Quick Action Button --- */
+.quick-action-btn.primary-action {
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
+    color: white;
+    border-color: var(--accent-primary);
+    font-weight: 600;
+}
+
+.quick-action-btn.primary-action:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+}
+
+/* --- Unified Task Input (Eisenhower) --- */
+.unified-task-input {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+}
+
+.unified-input-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.unified-input-row .matrix-input {
+    flex: 1;
+}
+
+.unified-input-row .matrix-duration {
+    width: 80px;
+}
+
+.unified-input-row .matrix-schedule {
+    width: 160px;
+}
+
+.unified-quadrant-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.quadrant-pick {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.quadrant-pick:hover {
+    border-color: var(--border-hover);
+    color: var(--text-primary);
+}
+
+.quadrant-pick.active {
+    border-color: var(--accent-primary);
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--text-primary);
+}
+
+.qp-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* --- Calendar Details/Collapsible Sections --- */
+.monthly-details {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.monthly-details-summary {
+    padding: 14px 20px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text-primary);
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    user-select: none;
+}
+
+.monthly-details-summary::-webkit-details-marker {
+    display: none;
+}
+
+.monthly-details-summary::before {
+    content: '\25B6';
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+}
+
+.monthly-details[open] > .monthly-details-summary::before {
+    transform: rotate(90deg);
+}
+
+.monthly-details .monthly-goals,
+.monthly-details .lessons-section {
+    padding: 0 20px 16px;
+}
+
+/* Today button style */
+.btn-today {
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid var(--accent-primary);
+    color: var(--accent-primary);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn-today:hover {
+    background: var(--accent-primary);
+    color: white;
+}
+
+/* --- Settings Collapsible Sections --- */
+.settings-section-details {
+    margin-bottom: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.settings-section-details > .settings-section-title {
+    cursor: pointer;
+    padding: 16px 20px;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    user-select: none;
+}
+
+.settings-section-details > .settings-section-title::-webkit-details-marker {
+    display: none;
+}
+
+.settings-section-details > .settings-section-title::before {
+    content: '\25B6';
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+}
+
+.settings-section-details[open] > .settings-section-title::before {
+    transform: rotate(90deg);
+}
+
+.settings-section-details .settings-card {
+    margin: 0 12px 12px;
+}
+
+/* --- Notes Empty State --- */
+.empty-state-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+}
+
+.empty-state-icon {
+    font-size: 48px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-state-card .empty-state {
+    color: var(--text-secondary);
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.empty-state-card .empty-state-hint {
+    max-width: 300px;
+}
+
+/* --- Utility classes --- */
+.hidden {
+    display: none !important;
+}
+
+.flex-2 { flex: 2; }
+.flex-1 { flex: 1; }
+.flex-icon { flex: 0 0 80px; }
+
+/* --- Responsive adjustments for unified input --- */
+@media (max-width: 768px) {
+    .unified-input-row {
+        flex-direction: column;
+    }
+
+    .unified-input-row .matrix-duration,
+    .unified-input-row .matrix-schedule {
+        width: 100%;
+    }
+
+    .unified-quadrant-row {
+        flex-wrap: wrap;
+    }
+
+    .quadrant-pick {
+        font-size: 12px;
+        padding: 5px 10px;
+    }
+
+    .quick-stats {
+        gap: 8px;
+    }
+
+    .stat-chip .stat-number {
+        font-size: 18px;
+    }
+}
