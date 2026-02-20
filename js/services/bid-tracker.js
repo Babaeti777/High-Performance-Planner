@@ -355,6 +355,16 @@ const BidTracker = {
         document.getElementById('saveBidEdit')?.addEventListener('click', () => this.saveEdit());
         document.getElementById('deleteBidBtn')?.addEventListener('click', () => this.deleteBid());
 
+        // Addendum button in edit modal
+        document.getElementById('addAddendumBtn')?.addEventListener('click', () => {
+            const bid = this.bids.find(b => b.id === this.editingBidId);
+            if (bid) this.addAddendum(bid);
+        });
+
+        // Live duplicate check on project name / bid number inputs
+        document.getElementById('bidProjectName')?.addEventListener('input', () => this.checkDuplicateLive());
+        document.getElementById('bidNumber')?.addEventListener('input', () => this.checkDuplicateLive());
+
         // Enter key on form inputs
         document.querySelectorAll('#bidManualForm input').forEach(input => {
             input.addEventListener('keypress', (e) => {
@@ -655,6 +665,7 @@ const BidTracker = {
     // Add a new bid
     addBid() {
         const projectName = document.getElementById('bidProjectName')?.value.trim();
+        const bidNumber = document.getElementById('bidNumber')?.value.trim() || '';
         const client = document.getElementById('bidClient')?.value.trim();
         const dueDate = document.getElementById('bidDueDate')?.value;
 
@@ -663,27 +674,85 @@ const BidTracker = {
             return;
         }
 
+        // Check for duplicates
+        const duplicate = this.findDuplicate(projectName, bidNumber);
+        if (duplicate) {
+            const proceed = confirm(
+                `Possible duplicate detected!\n\n` +
+                `Existing bid: "${duplicate.projectName}"` +
+                (duplicate.bidNumber ? ` (${duplicate.bidNumber})` : '') +
+                `\nClient: ${duplicate.client}` +
+                `\n\nDo you still want to add this bid?`
+            );
+            if (!proceed) return;
+        }
+
         const bid = {
             id: Date.now(),
             projectName,
-            bidNumber: document.getElementById('bidNumber')?.value.trim() || '',
+            bidNumber,
             client,
             value: document.getElementById('bidValue')?.value.trim() || '',
+            location: document.getElementById('bidLocation')?.value.trim() || '',
+            meetingInfo: document.getElementById('bidMeetingInfo')?.value.trim() || '',
             dueDate,
             preBidDate: document.getElementById('bidPreBidDate')?.value || '',
             rfiDate: document.getElementById('bidRfiDate')?.value || '',
             siteVisit: document.getElementById('bidSiteVisit')?.value || '',
             status: document.getElementById('bidStatus')?.value || 'researching',
             notes: document.getElementById('bidNotes')?.value.trim() || '',
+            addenda: [],
             createdAt: new Date().toISOString()
         };
 
         this.bids.push(bid);
         this.saveBids();
-        this.syncToCalendarAndMatrix(); // Sync to Calendar & Matrix
+        this.syncToCalendarAndMatrix();
         this.clearForm();
         this.render();
         this.showToast('Bid added successfully!', 'success');
+    },
+
+    // Find duplicate bids by project name or bid number
+    findDuplicate(projectName, bidNumber, excludeId = null) {
+        const normalizedName = projectName.toLowerCase().trim();
+        return this.bids.find(b => {
+            if (excludeId && b.id === excludeId) return false;
+            // Match by bid number (exact, if both non-empty)
+            if (bidNumber && b.bidNumber && b.bidNumber.toLowerCase() === bidNumber.toLowerCase()) {
+                return true;
+            }
+            // Match by project name (fuzzy - same after lowercasing)
+            if (b.projectName.toLowerCase().trim() === normalizedName) {
+                return true;
+            }
+            return false;
+        });
+    },
+
+    // Check for duplicates as user types (live warning)
+    checkDuplicateLive() {
+        const projectName = document.getElementById('bidProjectName')?.value.trim() || '';
+        const bidNumber = document.getElementById('bidNumber')?.value.trim() || '';
+        const warningEl = document.getElementById('bidDuplicateWarning');
+        const warningText = document.getElementById('bidDuplicateText');
+
+        if (!warningEl || !warningText) return;
+
+        if (projectName.length < 3 && !bidNumber) {
+            warningEl.classList.add('hidden');
+            return;
+        }
+
+        const duplicate = this.findDuplicate(projectName, bidNumber);
+        if (duplicate) {
+            warningText.textContent = `Possible duplicate: "${duplicate.projectName}"` +
+                (duplicate.bidNumber ? ` (${duplicate.bidNumber})` : '') +
+                ` — ${duplicate.client}`;
+            warningEl.classList.remove('hidden');
+        } else {
+            warningEl.classList.add('hidden');
+        }
     },
 
     // Clear the input form
@@ -692,12 +761,15 @@ const BidTracker = {
         document.getElementById('bidNumber').value = '';
         document.getElementById('bidClient').value = '';
         document.getElementById('bidValue').value = '';
+        document.getElementById('bidLocation').value = '';
+        document.getElementById('bidMeetingInfo').value = '';
         document.getElementById('bidDueDate').value = '';
         document.getElementById('bidPreBidDate').value = '';
         document.getElementById('bidRfiDate').value = '';
         document.getElementById('bidSiteVisit').value = '';
         document.getElementById('bidStatus').value = 'researching';
         document.getElementById('bidNotes').value = '';
+        document.getElementById('bidDuplicateWarning')?.classList.add('hidden');
     },
 
     // Parse ITB text to extract relevant information
@@ -1255,12 +1327,17 @@ const BidTracker = {
         document.getElementById('editBidNumber').value = bid.bidNumber || '';
         document.getElementById('editBidClient').value = bid.client;
         document.getElementById('editBidValue').value = bid.value || '';
+        document.getElementById('editBidLocation').value = bid.location || '';
+        document.getElementById('editBidMeetingInfo').value = bid.meetingInfo || '';
         document.getElementById('editBidDueDate').value = bid.dueDate;
         document.getElementById('editBidPreBidDate').value = bid.preBidDate || '';
         document.getElementById('editBidRfiDate').value = bid.rfiDate || '';
         document.getElementById('editBidSiteVisit').value = bid.siteVisit || '';
         document.getElementById('editBidStatus').value = bid.status;
         document.getElementById('editBidNotes').value = bid.notes || '';
+
+        // Render addenda list
+        this.renderAddenda(bid);
 
         document.getElementById('bidEditModal').classList.remove('hidden');
     },
@@ -1283,6 +1360,8 @@ const BidTracker = {
         bid.bidNumber = document.getElementById('editBidNumber').value.trim();
         bid.client = client;
         bid.value = document.getElementById('editBidValue').value.trim();
+        bid.location = document.getElementById('editBidLocation').value.trim();
+        bid.meetingInfo = document.getElementById('editBidMeetingInfo').value.trim();
         bid.dueDate = dueDate;
         bid.preBidDate = document.getElementById('editBidPreBidDate').value;
         bid.rfiDate = document.getElementById('editBidRfiDate').value;
@@ -1290,8 +1369,13 @@ const BidTracker = {
         bid.status = document.getElementById('editBidStatus').value;
         bid.notes = document.getElementById('editBidNotes').value.trim();
 
+        // Clear google sync ID so updated event re-syncs
+        if (bid.googleEventId) {
+            delete bid.googleEventId;
+        }
+
         this.saveBids();
-        this.syncToCalendarAndMatrix(); // Sync to Calendar & Matrix
+        this.syncToCalendarAndMatrix();
         this.closeModal();
         this.render();
         this.showToast('Bid updated successfully!', 'success');
@@ -1351,6 +1435,9 @@ const BidTracker = {
         const events = [];
         const alarms = this.buildAlarms();
 
+        // Build location string for events
+        const bidLocation = [bid.location, bid.meetingInfo].filter(Boolean).join(' — ');
+
         // 1. Bid Due Date
         if (bid.dueDate) {
             const dueDate = new Date(bid.dueDate);
@@ -1358,6 +1445,7 @@ const BidTracker = {
                 uid: `bid-due-${bid.id}`,
                 summary: `BID DUE: ${bid.projectName}`,
                 description: this.buildDescription(bid, 'Bid submission deadline'),
+                location: bid.location || '',
                 start: dueDate,
                 end: new Date(dueDate.getTime() + 60 * 60 * 1000),
                 alarms: alarms,
@@ -1442,6 +1530,7 @@ const BidTracker = {
                 uid: `pre-bid-${bid.id}`,
                 summary: `Pre-Bid Meeting: ${bid.projectName}`,
                 description: this.buildDescription(bid, 'Pre-bid meeting/conference'),
+                location: bidLocation,
                 start: preBidDate,
                 end: new Date(preBidDate.getTime() + 2 * 60 * 60 * 1000),
                 alarms: alarms,
@@ -1484,6 +1573,7 @@ const BidTracker = {
                 uid: `site-visit-${bid.id}`,
                 summary: `Site Visit: ${bid.projectName}`,
                 description: this.buildDescription(bid, 'Project site visit'),
+                location: bid.location || '',
                 start: siteVisitDate,
                 end: new Date(siteVisitDate.getTime() + 2 * 60 * 60 * 1000),
                 alarms: alarms,
@@ -1501,7 +1591,19 @@ const BidTracker = {
         if (bid.bidNumber) desc += `Bid #: ${bid.bidNumber}\n`;
         desc += `Client: ${bid.client}\n`;
         if (bid.value) desc += `Estimated Value: ${bid.value}\n`;
+        if (bid.location) desc += `Location: ${bid.location}\n`;
+        if (bid.meetingInfo) desc += `Meeting Info: ${bid.meetingInfo}\n`;
         if (bid.notes) desc += `\nNotes: ${bid.notes}\n`;
+
+        // Show addenda if present
+        if (bid.addenda && bid.addenda.length > 0) {
+            desc += `\n--- Addenda (${bid.addenda.length}) ---\n`;
+            bid.addenda.forEach(a => {
+                desc += `Addendum ${a.number}: ${a.description}`;
+                if (a.newDueDate) desc += ` [New Due: ${this.formatDateTime(a.newDueDate)}]`;
+                desc += `\n`;
+            });
+        }
 
         desc += '\n--- Key Dates ---\n';
         if (bid.dueDate) desc += `Bid Due: ${this.formatDateTime(bid.dueDate)}\n`;
@@ -1549,6 +1651,9 @@ const BidTracker = {
             lines.push(`DTSTART;TZID=America/Los_Angeles:${this.formatICSDate(event.start, true)}`);
             lines.push(`DTEND;TZID=America/Los_Angeles:${this.formatICSDate(event.end, true)}`);
             lines.push(`SUMMARY:${this.escapeICS(event.summary)}`);
+            if (event.location) {
+                lines.push(`LOCATION:${this.escapeICS(event.location)}`);
+            }
             lines.push(`DESCRIPTION:${this.escapeICS(event.description)}`);
             lines.push(`PRIORITY:${event.priority || 5}`);
             lines.push('STATUS:CONFIRMED');
@@ -1625,6 +1730,110 @@ const BidTracker = {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    },
+
+    // ==================== Addendum Management ====================
+
+    // Render addenda list in edit modal
+    renderAddenda(bid) {
+        const container = document.getElementById('editAddendumList');
+        if (!container) return;
+
+        const addenda = bid.addenda || [];
+        if (addenda.length === 0) {
+            container.innerHTML = '<p class="empty-addendum">No addenda recorded.</p>';
+            return;
+        }
+
+        container.innerHTML = addenda.map((a, i) => `
+            <div class="addendum-item" data-index="${i}">
+                <div class="addendum-item-header">
+                    <strong>Addendum ${a.number}</strong>
+                    <span class="addendum-date">${a.date ? this.formatDateTime(a.date) : ''}</span>
+                    <button class="btn-remove-addendum" data-index="${i}" title="Remove">&times;</button>
+                </div>
+                <div class="addendum-item-body">
+                    <span>${this.escapeHtml(a.description)}</span>
+                    ${a.newDueDate ? `<span class="addendum-new-date">New due: ${this.formatDateTime(a.newDueDate)}</span>` : ''}
+                    ${a.newPreBidDate ? `<span class="addendum-new-date">New pre-bid: ${this.formatDateTime(a.newPreBidDate)}</span>` : ''}
+                    ${a.newRfiDate ? `<span class="addendum-new-date">New RFI: ${this.formatDateTime(a.newRfiDate)}</span>` : ''}
+                </div>
+            </div>
+        `).join('');
+
+        // Bind remove buttons
+        container.querySelectorAll('.btn-remove-addendum').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.dataset.index);
+                this.removeAddendum(bid, idx);
+            });
+        });
+    },
+
+    // Add addendum to the currently edited bid
+    addAddendum(bid) {
+        const number = (bid.addenda?.length || 0) + 1;
+        const description = prompt(`Addendum #${number} — Enter a brief description:`);
+        if (!description) return;
+
+        const newDueDate = prompt('New bid due date/time? (leave blank if unchanged)\nFormat: YYYY-MM-DDTHH:MM (e.g. 2026-03-15T14:00)');
+        const newPreBidDate = prompt('New pre-bid meeting date/time? (leave blank if unchanged)\nFormat: YYYY-MM-DDTHH:MM');
+        const newRfiDate = prompt('New RFI due date/time? (leave blank if unchanged)\nFormat: YYYY-MM-DDTHH:MM');
+
+        if (!bid.addenda) bid.addenda = [];
+
+        const addendum = {
+            number,
+            description,
+            date: new Date().toISOString(),
+            newDueDate: newDueDate || '',
+            newPreBidDate: newPreBidDate || '',
+            newRfiDate: newRfiDate || ''
+        };
+
+        bid.addenda.push(addendum);
+
+        // Auto-update the bid dates if addendum provides new ones
+        let updated = false;
+        if (newDueDate) {
+            bid.dueDate = newDueDate;
+            document.getElementById('editBidDueDate').value = newDueDate;
+            updated = true;
+        }
+        if (newPreBidDate) {
+            bid.preBidDate = newPreBidDate;
+            document.getElementById('editBidPreBidDate').value = newPreBidDate;
+            updated = true;
+        }
+        if (newRfiDate) {
+            bid.rfiDate = newRfiDate;
+            document.getElementById('editBidRfiDate').value = newRfiDate;
+            updated = true;
+        }
+
+        // Clear google sync ID so updated dates re-sync
+        if (updated && bid.googleEventId) {
+            delete bid.googleEventId;
+        }
+
+        this.saveBids();
+        this.renderAddenda(bid);
+
+        if (updated) {
+            this.showToast(`Addendum #${number} added — dates updated automatically`, 'success');
+        } else {
+            this.showToast(`Addendum #${number} added`, 'success');
+        }
+    },
+
+    // Remove addendum
+    removeAddendum(bid, index) {
+        if (!bid.addenda) return;
+        bid.addenda.splice(index, 1);
+        // Re-number
+        bid.addenda.forEach((a, i) => a.number = i + 1);
+        this.saveBids();
+        this.renderAddenda(bid);
     },
 
     // AI-powered bid success prediction
