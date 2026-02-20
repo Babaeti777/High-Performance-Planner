@@ -849,15 +849,6 @@ function renderDayView(date) {
     });
 }
 
-function calculateEndTime(startTime, duration) {
-    const [hour, min] = startTime.split(':').map(Number);
-    const endHour = hour + Math.floor(duration);
-    const endMin = min + (duration % 1) * 60;
-    const finalHour = endHour + Math.floor(endMin / 60);
-    const finalMin = endMin % 60;
-    return `${String(finalHour).padStart(2, '0')}:${String(finalMin).padStart(2, '0')}`;
-}
-
 // ==================== Week View (Google Calendar Style) ====================
 function renderWeekView() {
     const weekDaysColumns = document.getElementById('weekDaysColumns');
@@ -2669,29 +2660,6 @@ function initScheduleSidebar() {
     });
 }
 
-function renderMiniClockDots() {
-    const dotsGroup = document.getElementById('miniClockDots');
-    if (!dotsGroup) return;
-
-    dotsGroup.innerHTML = '';
-
-    // 12 hour dots
-    for (let i = 0; i < 12; i++) {
-        const angle = (i / 12) * 360 - 90;
-        const radian = (angle * Math.PI) / 180;
-        const radius = 42;
-        const x = 50 + Math.cos(radian) * radius;
-        const y = 50 + Math.sin(radian) * radius;
-
-        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        dot.setAttribute('cx', x);
-        dot.setAttribute('cy', y);
-        dot.setAttribute('r', i % 3 === 0 ? 2 : 1);
-        dot.setAttribute('class', 'mini-clock-dot');
-        dotsGroup.appendChild(dot);
-    }
-}
-
 function renderVerticalTimeline() {
     const container = document.getElementById('verticalTimelineScroll');
     if (!container) return;
@@ -2992,27 +2960,6 @@ function updateClock() {
         miniDate.textContent = now.toLocaleDateString('en-US', options);
     }
 
-    // Update mini clock hands (SVG line elements)
-    const miniHourHand = document.getElementById('miniHourHand');
-    const miniMinuteHand = document.getElementById('miniMinuteHand');
-
-    if (miniHourHand && miniMinuteHand) {
-        const hourAngle = ((hours % 12) + minutes / 60) * 30 - 90;
-        const minuteAngle = minutes * 6 - 90;
-
-        // Calculate hand endpoints (from center at 50,50)
-        const hourRad = (hourAngle * Math.PI) / 180;
-        const minuteRad = (minuteAngle * Math.PI) / 180;
-
-        const hourLen = 22;
-        const minuteLen = 30;
-
-        miniHourHand.setAttribute('x2', 50 + Math.cos(hourRad) * hourLen);
-        miniHourHand.setAttribute('y2', 50 + Math.sin(hourRad) * hourLen);
-        miniMinuteHand.setAttribute('x2', 50 + Math.cos(minuteRad) * minuteLen);
-        miniMinuteHand.setAttribute('y2', 50 + Math.sin(minuteRad) * minuteLen);
-    }
-
     // Update current activity in sidebar
     const activityName = document.getElementById('currentActivityMiniName');
     if (activityName) {
@@ -3032,30 +2979,6 @@ function updateClock() {
     }
     if (typeof renderSidebarRoutines === 'function') {
         renderSidebarRoutines();
-    }
-}
-
-function renderClockDots() {
-    const dotsGroup = document.getElementById('clockDots');
-    if (!dotsGroup) return;
-
-    dotsGroup.innerHTML = '';
-
-    // 12 hour dots
-    for (let i = 0; i < 12; i++) {
-        const angle = (i / 12) * 360 - 90;
-        const radian = (angle * Math.PI) / 180;
-        const isMajor = i % 3 === 0; // 12, 3, 6, 9 are major
-        const radius = 130;
-        const x = 150 + Math.cos(radian) * radius;
-        const y = 150 + Math.sin(radian) * radius;
-
-        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        dot.setAttribute('cx', x);
-        dot.setAttribute('cy', y);
-        dot.setAttribute('r', isMajor ? 5 : 3);
-        dot.setAttribute('class', `clock-dot ${isMajor ? 'major' : ''}`);
-        dotsGroup.appendChild(dot);
     }
 }
 

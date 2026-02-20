@@ -16,7 +16,7 @@
     <div class="app-container">
         <!-- Sidebar Navigation -->
         <!-- Mobile Menu Toggle (Outside Sidebar) -->
-        <button class="mobile-menu-toggle" id="mobileMenuToggle">
+        <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu">
             <span></span>
             <span></span>
             <span></span>
@@ -29,7 +29,7 @@
                     <span class="logo-icon">📅</span>
                     <span class="logo-text">Planner</span>
                 </div>
-                <button class="sidebar-close" id="sidebarClose">×</button>
+                <button class="sidebar-close" id="sidebarClose" aria-label="Close sidebar">×</button>
                 <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Collapse sidebar">«</button>
             </div>
 
@@ -154,7 +154,7 @@
                         <div class="routines-panel-header">
                             <h3>Daily Routines</h3>
                             <button class="btn btn-primary btn-sm" id="addRoutineBtn">+ Add</button>
-                            <button class="close-panel-btn" id="closeRoutinesPanel">×</button>
+                            <button class="close-panel-btn" id="closeRoutinesPanel" aria-label="Close routines panel">×</button>
                         </div>
                         <div class="routines-list-full" id="routinesList">
                             <!-- Routines rendered here -->
@@ -284,8 +284,8 @@
                             <h3 id="dayWeekTitle">January 1, 2026</h3>
                         </div>
                         <div class="day-week-actions">
-                            <button class="btn btn-secondary" id="openMatrixFromDay">🎯 Open Matrix</button>
-                            <button class="modal-close" id="closeDayWeek">×</button>
+                            <button class="btn btn-secondary" id="openMatrixFromDay">Open Matrix</button>
+                            <button class="modal-close" id="closeDayWeek" aria-label="Close">×</button>
                         </div>
                     </div>
                     <div class="modal-body day-week-body">
@@ -327,7 +327,7 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h3>Add New Task</h3>
-                        <button class="modal-close" id="closeModal">×</button>
+                        <button class="modal-close" id="closeModal" aria-label="Close">×</button>
                     </div>
                     <div class="modal-body">
                         <div class="form-group">
@@ -441,14 +441,14 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h3 id="routineModalTitle">Add Routine</h3>
-                        <button class="modal-close" id="closeRoutineModal">×</button>
+                        <button class="modal-close" id="closeRoutineModal" aria-label="Close">×</button>
                     </div>
                     <div class="modal-body">
                         <div class="form-row">
                             <div class="form-group flex-icon">
                                 <label>Icon</label>
                                 <div class="emoji-picker-mini" id="routineEmojiPicker">
-                                    <button class="emoji-selected" id="selectedEmoji">🏃</button>
+                                    <button class="emoji-selected" id="selectedEmoji" aria-label="Select emoji">🏃</button>
                                     <div class="emoji-dropdown hidden" id="emojiDropdown">
                                         <button data-emoji="🏃">🏃</button>
                                         <button data-emoji="🧘">🧘</button>
@@ -523,7 +523,7 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h3>Google Calendar Settings</h3>
-                        <button class="modal-close" id="closeGoogleSettings">×</button>
+                        <button class="modal-close" id="closeGoogleSettings" aria-label="Close">×</button>
                     </div>
                     <div class="modal-body">
                         <div class="google-setup-info">
@@ -900,7 +900,7 @@
                                 <div class="file-info">
                                     <span class="file-icon">📄</span>
                                     <span class="file-name" id="fileName"></span>
-                                    <button class="btn-remove-file" id="removeFileBtn" title="Remove file">×</button>
+                                    <button class="btn-remove-file" id="removeFileBtn" title="Remove file" aria-label="Remove file">×</button>
                                 </div>
                                 <div class="extraction-progress" id="extractionProgress">
                                     <div class="progress-bar">
@@ -972,8 +972,8 @@
                     <!-- AI Chat Sidebar for Bid Documents -->
                     <div class="bid-chat-sidebar" id="bidChatSidebar">
                         <div class="bid-chat-header">
-                            <h4>🤖 Ask AI About Document</h4>
-                            <button class="bid-chat-toggle" id="bidChatToggle" title="Toggle Chat">−</button>
+                            <h4>Ask AI About Document</h4>
+                            <button class="bid-chat-toggle" id="bidChatToggle" title="Toggle Chat" aria-label="Toggle chat">−</button>
                         </div>
                         <div class="bid-chat-body" id="bidChatBody">
                             <div class="bid-chat-messages" id="bidChatMessages">
@@ -1001,8 +1001,8 @@
                     <!-- Lead Time Settings Panel -->
                     <div class="lead-time-settings" id="leadTimeSettings">
                         <div class="lead-time-header">
-                            <h4>⚙️ Internal Milestone Settings</h4>
-                            <button class="lead-time-toggle" id="leadTimeToggle">▼</button>
+                            <h4>Internal Milestone Settings</h4>
+                            <button class="lead-time-toggle" id="leadTimeToggle" aria-label="Toggle settings">▼</button>
                         </div>
                         <div class="lead-time-body" id="leadTimeBody">
                             <p class="lead-time-desc">Configure how many days before the bid deadline to set internal reminders:</p>
@@ -1039,7 +1039,7 @@
                     <!-- ICS Reminder Settings -->
                     <div class="ics-reminder-settings" id="icsReminderSettings">
                         <div class="ics-reminder-header">
-                            <h4>🔔 ICS Reminder Settings</h4>
+                            <h4>ICS Reminder Settings</h4>
                         </div>
                         <div class="ics-reminder-body">
                             <label><input type="checkbox" id="reminder1Hour" checked> 1 Hour Before</label>
@@ -1056,7 +1056,7 @@
                 <div class="modal-content bid-modal-content">
                     <div class="modal-header">
                         <h3 id="bidModalTitle">Edit Bid</h3>
-                        <button class="modal-close" id="closeBidModal">×</button>
+                        <button class="modal-close" id="closeBidModal" aria-label="Close">×</button>
                     </div>
                     <div class="modal-body">
                         <div class="form-row">
@@ -1203,8 +1203,8 @@
     <div class="modal hidden" id="smartScheduleModal">
         <div class="modal-content smart-schedule-modal">
             <div class="modal-header">
-                <h3>🤖 AI Smart Scheduler</h3>
-                <button class="close-btn" id="closeSmartSchedule">&times;</button>
+                <h3>AI Smart Scheduler</h3>
+                <button class="close-btn" id="closeSmartSchedule" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body" id="smartScheduleBody">
                 <div class="smart-schedule-intro">
@@ -1224,9 +1224,7 @@
                             <input type="time" id="workEndTime" value="22:00">
                         </div>
                     </div>
-                    <button class="btn btn-primary" id="generateScheduleBtn">
-                        <span>✨</span> Generate Smart Schedule
-                    </button>
+                    <button class="btn btn-primary" id="generateScheduleBtn">Generate Smart Schedule</button>
                 </div>
                 <div class="smart-schedule-result hidden" id="scheduleResult">
                     <!-- Populated by JS -->
