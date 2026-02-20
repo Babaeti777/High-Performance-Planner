@@ -5180,6 +5180,120 @@ select:focus {
 .flex-1 { flex: 1; }
 .flex-icon { flex: 0 0 80px; }
 
+/* --- Duplicate Warning Banner --- */
+.bid-duplicate-warning {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    margin-bottom: 12px;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 8px;
+    color: var(--accent-warning);
+    font-size: 13px;
+    animation: slideDown 0.2s ease;
+}
+
+.bid-duplicate-warning.hidden {
+    display: none;
+}
+
+.warning-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Addendum Section (Edit Modal) --- */
+.addendum-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+.addendum-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.addendum-header label {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.addendum-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.empty-addendum {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-style: italic;
+}
+
+.addendum-item {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px 14px;
+}
+
+.addendum-item-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+
+.addendum-item-header strong {
+    font-size: 13px;
+    color: var(--accent-primary);
+}
+
+.addendum-date {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-left: auto;
+}
+
+.btn-remove-addendum {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.btn-remove-addendum:hover {
+    color: var(--accent-danger);
+}
+
+.addendum-item-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.addendum-new-date {
+    color: var(--accent-secondary);
+    font-weight: 500;
+    font-size: 12px;
+}
+
 /* --- Responsive adjustments for unified input --- */
 @media (max-width: 768px) {
     .unified-input-row {
