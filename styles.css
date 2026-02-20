@@ -2994,42 +2994,6 @@ select:focus {
     border-radius: 12px;
 }
 
-.mini-clock-svg {
-    width: 70px;
-    height: 70px;
-    flex-shrink: 0;
-}
-
-.mini-clock-face {
-    fill: var(--bg-primary);
-    stroke: var(--border-color);
-    stroke-width: 2;
-}
-
-.mini-clock-dot {
-    fill: var(--text-muted);
-}
-
-.mini-clock-hand {
-    stroke-linecap: round;
-    transition: transform 0.5s ease;
-    transform-origin: 50px 50px;
-}
-
-.mini-hour-hand {
-    stroke: var(--text-primary);
-    stroke-width: 3;
-}
-
-.mini-minute-hand {
-    stroke: var(--accent-primary);
-    stroke-width: 2;
-}
-
-.mini-clock-center {
-    fill: var(--accent-primary);
-}
-
 .mini-time-display {
     display: flex;
     flex-direction: column;
