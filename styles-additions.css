@@ -916,3 +916,125 @@ button:focus-visible,
     outline: none;
     box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
 }
+
+/* ==================== Duplicate Merge Modal ==================== */
+.duplicate-intro {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+.duplicate-group {
+    background: var(--bg-tertiary, rgba(255,255,255,0.03));
+    border: 1px solid var(--border-color, #333);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 14px;
+}
+
+.duplicate-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color, #333);
+}
+
+.duplicate-group-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.duplicate-group-date {
+    font-size: 0.8rem;
+    color: var(--text-muted, #888);
+    background: var(--bg-card, #1e1e2e);
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+
+.duplicate-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.duplicate-item:hover {
+    background: rgba(99, 102, 241, 0.08);
+}
+
+.duplicate-item.selected {
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.duplicate-item input[type="radio"] {
+    margin-top: 3px;
+    accent-color: var(--accent-primary, #6366f1);
+}
+
+.duplicate-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.duplicate-item-text {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    word-break: break-word;
+}
+
+.duplicate-item-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 0.75rem;
+    color: var(--text-muted, #888);
+}
+
+.duplicate-item-meta span {
+    background: var(--bg-card, #1e1e2e);
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+
+.duplicate-item-meta .dup-source-eisenhower {
+    color: #6366f1;
+}
+
+.duplicate-item-meta .dup-source-daily {
+    color: #22c55e;
+}
+
+.duplicate-item-meta .dup-source-google {
+    color: #4285f4;
+}
+
+.duplicate-no-results {
+    text-align: center;
+    padding: 32px 16px;
+    color: var(--text-muted, #888);
+}
+
+.duplicate-no-results-icon {
+    font-size: 2rem;
+    margin-bottom: 8px;
+}
+
+.duplicate-count-badge {
+    display: inline-block;
+    background: var(--accent-primary, #6366f1);
+    color: white;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+}

@@ -563,6 +563,24 @@
                 </div>
             </div>
 
+            <!-- Duplicate Merge Modal -->
+            <div id="duplicateMergeModal" class="modal hidden">
+                <div class="modal-content" style="max-width: 640px;">
+                    <div class="modal-header">
+                        <h3>Duplicate Tasks Found</h3>
+                        <button class="modal-close" id="closeDuplicateModal" aria-label="Close">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="duplicate-intro">The following groups of tasks appear to be duplicates. Select which copy to keep in each group, then click <strong>Merge Selected</strong>.</p>
+                        <div id="duplicateGroupsList"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" id="cancelDuplicateMerge">Cancel</button>
+                        <button class="btn btn-primary" id="applyDuplicateMerge">Merge Selected</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Toast Notification -->
             <div id="toast" class="toast hidden">
                 <span id="toastMessage"></span>
@@ -774,6 +792,15 @@
                                 <div class="setting-control">
                                     <button id="settingsImport" class="btn btn-secondary">Import</button>
                                     <input type="file" id="settingsImportFile" accept=".json" style="display: none;">
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label>Find Duplicate Tasks</label>
+                                    <p class="setting-description">Scan calendar for duplicate entries and merge them</p>
+                                </div>
+                                <div class="setting-control">
+                                    <button id="settingsFindDuplicates" class="btn btn-secondary">Scan for Duplicates</button>
                                 </div>
                             </div>
                             <div class="setting-item danger">
