@@ -3921,6 +3921,12 @@ function openDuplicateMergeModal() {
     } else {
         applyBtn.style.display = '';
 
+        // Help hint at the top
+        const hint = document.createElement('div');
+        hint.className = 'duplicate-help-hint';
+        hint.textContent = 'Click a copy to keep it. The others will be removed when you merge.';
+        list.appendChild(hint);
+
         groups.forEach((group, gi) => {
             const groupEl = document.createElement('div');
             groupEl.className = 'duplicate-group';
@@ -3958,6 +3964,8 @@ function openDuplicateMergeModal() {
                             ${item.task.completed ? '<span>&#10004; Done</span>' : ''}
                         </div>
                     </div>
+                    <span class="duplicate-keep-badge">Keep</span>
+                    <span class="duplicate-remove-badge">Remove</span>
                 `;
 
                 // Highlight selected
