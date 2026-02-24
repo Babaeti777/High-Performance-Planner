@@ -1287,7 +1287,7 @@ select:focus {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    max-height: 220px;
+    max-height: 280px;
     overflow-y: auto;
 }
 

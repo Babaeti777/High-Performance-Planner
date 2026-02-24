@@ -1609,20 +1609,99 @@ function renderEisenhowerMatrix() {
                 metaInfo.appendChild(durationBadge);
             }
 
+            if (task.startTime && task.scheduledDate) {
+                const timeBadge = document.createElement('span');
+                timeBadge.className = 'task-time-badge';
+                const [h, m] = task.startTime.split(':').map(Number);
+                const ampm = h >= 12 ? 'PM' : 'AM';
+                const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                timeBadge.textContent = `${displayH}:${String(m).padStart(2, '0')} ${ampm}`;
+                metaInfo.appendChild(timeBadge);
+            }
+
             if (task.scheduledDate) {
                 const scheduleBadge = document.createElement('span');
-                scheduleBadge.className = 'task-scheduled';
+                scheduleBadge.className = 'task-scheduled task-scheduled-link';
                 if (isOverdue) {
                     scheduleBadge.classList.add('overdue');
                 }
                 const schedDate = new Date(task.scheduledDate + 'T00:00:00');
-                scheduleBadge.textContent = schedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const isToday = task.scheduledDate === today;
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const isTomorrow = task.scheduledDate === formatDate(tomorrow);
+                let dateLabel;
+                if (isToday) {
+                    dateLabel = 'Today';
+                } else if (isTomorrow) {
+                    dateLabel = 'Tomorrow';
+                } else {
+                    dateLabel = schedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                }
+                scheduleBadge.textContent = dateLabel;
+                scheduleBadge.title = 'Click to view in calendar';
+                scheduleBadge.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openDayWeekPopup(new Date(task.scheduledDate + 'T00:00:00'));
+                });
                 metaInfo.appendChild(scheduleBadge);
             }
 
             textContainer.appendChild(text);
             if (metaInfo.children.length > 0) {
                 textContainer.appendChild(metaInfo);
+            }
+
+            // Calendar link button for scheduled tasks / schedule button for unscheduled
+            if (task.scheduledDate) {
+                const calBtn = document.createElement('button');
+                calBtn.className = 'matrix-cal-link-btn';
+                calBtn.title = 'Open in day view';
+                calBtn.textContent = '📆';
+                calBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openDayWeekPopup(new Date(task.scheduledDate + 'T00:00:00'));
+                });
+                textContainer.appendChild(calBtn);
+            } else {
+                const scheduleBtn = document.createElement('button');
+                scheduleBtn.className = 'matrix-schedule-btn';
+                scheduleBtn.title = 'Schedule this task';
+                scheduleBtn.textContent = '+ Schedule';
+                scheduleBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // Replace button with a date input inline
+                    const dateInput = document.createElement('input');
+                    dateInput.type = 'date';
+                    dateInput.className = 'matrix-inline-date';
+                    dateInput.min = formatDate(new Date());
+                    dateInput.addEventListener('change', () => {
+                        if (dateInput.value) {
+                            task.scheduledDate = dateInput.value;
+                            task.startTime = task.startTime || '09:00';
+                            // Add to daily tasks
+                            if (!AppState.data.daily[dateInput.value]) {
+                                AppState.data.daily[dateInput.value] = { tasks: [] };
+                            }
+                            AppState.data.daily[dateInput.value].tasks.push({
+                                id: task.id,
+                                text: task.text,
+                                completed: task.completed,
+                                source: 'eisenhower',
+                                quadrant: task.quadrant,
+                                duration: task.duration || DEFAULT_DURATION,
+                                startTime: task.startTime
+                            });
+                            saveData();
+                            renderEisenhowerMatrix();
+                            renderCalendar();
+                        }
+                    });
+                    scheduleBtn.replaceWith(dateInput);
+                    dateInput.showPicker?.();
+                    dateInput.focus();
+                });
+                metaInfo.appendChild(scheduleBtn);
             }
 
             // Timer button
