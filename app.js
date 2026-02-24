@@ -202,14 +202,26 @@ function addTaskToDate(dateKey, task) {
     if (!AppState.data.daily[dateKey]) {
         AppState.data.daily[dateKey] = { tasks: [] };
     }
-    AppState.data.daily[dateKey].tasks.push(task);
+
+    // Dedup guard: skip if task with same ID or same text already exists for this date
+    const existing = AppState.data.daily[dateKey].tasks;
+    const textNorm = normalizeTaskText(task.text);
+    if (existing.some(t => t.id === task.id || normalizeTaskText(t.text) === textNorm)) {
+        return; // duplicate — don't add
+    }
+
+    existing.push(task);
 
     // If it's an Eisenhower task, add to matrix too
     if (task.quadrant) {
-        AppState.data.eisenhower[task.quadrant].push({
-            ...task,
-            scheduledDate: dateKey
-        });
+        const eTasks = AppState.data.eisenhower[task.quadrant];
+        const eTextNorm = normalizeTaskText(task.text);
+        if (!eTasks.some(t => t.id === task.id || normalizeTaskText(t.text) === eTextNorm)) {
+            eTasks.push({
+                ...task,
+                scheduledDate: dateKey
+            });
+        }
     }
 
     saveData();
@@ -1473,6 +1485,13 @@ function initEisenhowerMatrix() {
 
 // Shared helper for adding eisenhower tasks
 function addEisenhowerTask(taskText, quadrant, duration, scheduledDate) {
+    // Dedup guard: check if task with same text already exists in this quadrant
+    const textNorm = normalizeTaskText(taskText);
+    if (AppState.data.eisenhower[quadrant].some(t => normalizeTaskText(t.text) === textNorm)) {
+        showToast('Task already exists in this quadrant');
+        return;
+    }
+
     const newTask = {
         id: Date.now() + Math.random(),
         text: taskText,
@@ -1486,21 +1505,24 @@ function addEisenhowerTask(taskText, quadrant, duration, scheduledDate) {
 
     AppState.data.eisenhower[quadrant].push(newTask);
 
-    // If scheduled, add to daily tasks for that date
+    // If scheduled, add to daily tasks for that date (with dedup guard)
     if (scheduledDate) {
         if (!AppState.data.daily[scheduledDate]) {
             AppState.data.daily[scheduledDate] = { tasks: [] };
         }
 
-        AppState.data.daily[scheduledDate].tasks.push({
-            id: newTask.id,
-            text: taskText,
-            completed: false,
-            source: 'eisenhower',
-            quadrant: quadrant,
-            duration: duration,
-            startTime: '09:00'
-        });
+        const dailyTasks = AppState.data.daily[scheduledDate].tasks;
+        if (!dailyTasks.some(t => t.id === newTask.id || normalizeTaskText(t.text) === textNorm)) {
+            dailyTasks.push({
+                id: newTask.id,
+                text: taskText,
+                completed: false,
+                source: 'eisenhower',
+                quadrant: quadrant,
+                duration: duration,
+                startTime: '09:00'
+            });
+        }
     }
 
     saveData();
@@ -1679,19 +1701,23 @@ function renderEisenhowerMatrix() {
                         if (dateInput.value) {
                             task.scheduledDate = dateInput.value;
                             task.startTime = task.startTime || '09:00';
-                            // Add to daily tasks
+                            // Add to daily tasks (with dedup guard)
                             if (!AppState.data.daily[dateInput.value]) {
                                 AppState.data.daily[dateInput.value] = { tasks: [] };
                             }
-                            AppState.data.daily[dateInput.value].tasks.push({
-                                id: task.id,
-                                text: task.text,
-                                completed: task.completed,
-                                source: 'eisenhower',
-                                quadrant: task.quadrant,
-                                duration: task.duration || DEFAULT_DURATION,
-                                startTime: task.startTime
-                            });
+                            const dailyList = AppState.data.daily[dateInput.value].tasks;
+                            const tNorm = normalizeTaskText(task.text);
+                            if (!dailyList.some(t => t.id === task.id || normalizeTaskText(t.text) === tNorm)) {
+                                dailyList.push({
+                                    id: task.id,
+                                    text: task.text,
+                                    completed: task.completed,
+                                    source: 'eisenhower',
+                                    quadrant: task.quadrant,
+                                    duration: task.duration || DEFAULT_DURATION,
+                                    startTime: task.startTime
+                                });
+                            }
                             saveData();
                             renderEisenhowerMatrix();
                             renderCalendar();
@@ -3616,6 +3642,14 @@ function initSettings() {
         }
     });
 
+    // Find Duplicates button
+    const findDuplicatesBtn = document.getElementById('settingsFindDuplicates');
+    if (findDuplicatesBtn) {
+        findDuplicatesBtn.addEventListener('click', () => {
+            openDuplicateMergeModal();
+        });
+    }
+
     // Refresh calendar list button
     const refreshCalendarBtn = document.getElementById('refreshCalendarList');
     if (refreshCalendarBtn) {
@@ -3752,6 +3786,317 @@ function initSettings() {
             }
         });
     }
+}
+
+// ==================== Duplicate Detection & Merge ====================
+
+/**
+ * Normalize text for fuzzy comparison: lowercase, collapse whitespace, trim
+ */
+function normalizeTaskText(text) {
+    return (text || '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Scan all daily task lists and the Eisenhower matrix for duplicates.
+ * Returns an array of duplicate groups:
+ * [{ dateKey, matchKey, items: [{ location, index, task }] }]
+ *
+ * Duplicate criteria (within the same date):
+ *  1. Same task ID appearing more than once
+ *  2. Same normalized text (case-insensitive, whitespace-collapsed)
+ */
+function findDuplicateTasks() {
+    const groups = [];
+
+    // --- Scan daily tasks per date ---
+    for (const [dateKey, dayData] of Object.entries(AppState.data.daily)) {
+        const tasks = dayData?.tasks;
+        if (!tasks || tasks.length < 2) continue;
+
+        // Group by ID
+        const byId = {};
+        // Group by normalized text
+        const byText = {};
+
+        tasks.forEach((task, index) => {
+            const idKey = String(task.id);
+            if (!byId[idKey]) byId[idKey] = [];
+            byId[idKey].push({ location: 'daily', dateKey, index, task });
+
+            const textKey = normalizeTaskText(task.text);
+            if (!byText[textKey]) byText[textKey] = [];
+            byText[textKey].push({ location: 'daily', dateKey, index, task });
+        });
+
+        // Collect ID-based duplicates
+        for (const [id, items] of Object.entries(byId)) {
+            if (items.length > 1) {
+                groups.push({
+                    dateKey,
+                    matchKey: `id:${id}`,
+                    reason: 'Same task ID',
+                    items
+                });
+            }
+        }
+
+        // Collect text-based duplicates (only if not already caught by ID)
+        const idGroupIds = new Set();
+        groups.forEach(g => {
+            if (g.matchKey.startsWith('id:')) {
+                g.items.forEach(it => idGroupIds.add(String(it.task.id)));
+            }
+        });
+
+        for (const [text, items] of Object.entries(byText)) {
+            if (items.length > 1) {
+                // Skip if ALL items in this text group are already in an ID group
+                const allInIdGroup = items.every(it => idGroupIds.has(String(it.task.id)));
+                if (allInIdGroup) continue;
+
+                groups.push({
+                    dateKey,
+                    matchKey: `text:${text}`,
+                    reason: 'Same task name',
+                    items
+                });
+            }
+        }
+    }
+
+    // --- Also check for tasks duplicated between eisenhower and daily ---
+    // For each eisenhower task with a scheduledDate, check if it has >1 copy in daily
+    for (const [quadrant, eTasks] of Object.entries(AppState.data.eisenhower)) {
+        for (const eTask of eTasks) {
+            if (!eTask.scheduledDate) continue;
+            const dailyTasks = AppState.data.daily[eTask.scheduledDate]?.tasks || [];
+            // Find all daily tasks matching this eisenhower task by text
+            const textNorm = normalizeTaskText(eTask.text);
+            const matches = dailyTasks
+                .map((t, i) => ({ location: 'daily', dateKey: eTask.scheduledDate, index: i, task: t }))
+                .filter(it => normalizeTaskText(it.task.text) === textNorm);
+
+            if (matches.length > 1) {
+                // Check if this group already exists
+                const key = `text:${textNorm}`;
+                const alreadyTracked = groups.some(
+                    g => g.dateKey === eTask.scheduledDate && g.matchKey === key
+                );
+                if (!alreadyTracked) {
+                    groups.push({
+                        dateKey: eTask.scheduledDate,
+                        matchKey: key,
+                        reason: 'Same task name',
+                        items: matches
+                    });
+                }
+            }
+        }
+    }
+
+    return groups;
+}
+
+/**
+ * Open the duplicate merge modal, populated with detected duplicates.
+ */
+function openDuplicateMergeModal() {
+    const groups = findDuplicateTasks();
+    const modal = document.getElementById('duplicateMergeModal');
+    const list = document.getElementById('duplicateGroupsList');
+    const applyBtn = document.getElementById('applyDuplicateMerge');
+    const cancelBtn = document.getElementById('cancelDuplicateMerge');
+    const closeBtn = document.getElementById('closeDuplicateModal');
+
+    list.innerHTML = '';
+
+    if (groups.length === 0) {
+        list.innerHTML = `
+            <div class="duplicate-no-results">
+                <div class="duplicate-no-results-icon">&#10004;</div>
+                <p>No duplicate tasks found. Your calendar is clean!</p>
+            </div>`;
+        applyBtn.style.display = 'none';
+    } else {
+        applyBtn.style.display = '';
+
+        groups.forEach((group, gi) => {
+            const groupEl = document.createElement('div');
+            groupEl.className = 'duplicate-group';
+            groupEl.dataset.groupIndex = gi;
+
+            const dateLabel = formatDateLabel(group.dateKey);
+
+            groupEl.innerHTML = `
+                <div class="duplicate-group-header">
+                    <span class="duplicate-group-title">${group.reason}<span class="duplicate-count-badge">${group.items.length} copies</span></span>
+                    <span class="duplicate-group-date">${dateLabel}</span>
+                </div>
+            `;
+
+            group.items.forEach((item, ii) => {
+                const itemEl = document.createElement('label');
+                itemEl.className = 'duplicate-item' + (ii === 0 ? ' selected' : '');
+
+                const sourceLabel = item.task.source === 'eisenhower' ? 'Matrix' :
+                                    item.task.source === 'google' ? 'Google' : 'Daily';
+                const sourceClass = 'dup-source-' + (item.task.source || 'daily');
+                const quadrantLabel = item.task.quadrant ? QUADRANT_NAMES[item.task.quadrant] : '';
+                const durationLabel = item.task.duration ? item.task.duration + 'h' : '';
+                const startLabel = item.task.startTime || '';
+
+                itemEl.innerHTML = `
+                    <input type="radio" name="dup-group-${gi}" value="${ii}" ${ii === 0 ? 'checked' : ''}>
+                    <div class="duplicate-item-info">
+                        <div class="duplicate-item-text">${sanitizeHTMLInline(item.task.text)}</div>
+                        <div class="duplicate-item-meta">
+                            <span class="${sourceClass}">${sourceLabel}</span>
+                            ${quadrantLabel ? `<span>${quadrantLabel}</span>` : ''}
+                            ${durationLabel ? `<span>${durationLabel}</span>` : ''}
+                            ${startLabel ? `<span>${startLabel}</span>` : ''}
+                            ${item.task.completed ? '<span>&#10004; Done</span>' : ''}
+                        </div>
+                    </div>
+                `;
+
+                // Highlight selected
+                const radio = itemEl.querySelector('input[type="radio"]');
+                radio.addEventListener('change', () => {
+                    groupEl.querySelectorAll('.duplicate-item').forEach(el => el.classList.remove('selected'));
+                    itemEl.classList.add('selected');
+                });
+
+                groupEl.appendChild(itemEl);
+            });
+
+            list.appendChild(groupEl);
+        });
+    }
+
+    // Wire up close / cancel
+    const closeModal = () => modal.classList.add('hidden');
+    closeBtn.onclick = closeModal;
+    cancelBtn.onclick = closeModal;
+    modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+
+    // Wire up merge
+    applyBtn.onclick = () => {
+        applyDuplicateMerge(groups);
+        closeModal();
+    };
+
+    modal.classList.remove('hidden');
+}
+
+/**
+ * Simple inline HTML sanitizer (no tags allowed).
+ */
+function sanitizeHTMLInline(text) {
+    const el = document.createElement('span');
+    el.textContent = text || '';
+    return el.innerHTML;
+}
+
+/**
+ * Format a dateKey (YYYY-MM-DD) into a friendly label.
+ */
+function formatDateLabel(dateKey) {
+    const today = formatDate(new Date());
+    const tomorrow = formatDate(new Date(Date.now() + 86400000));
+    if (dateKey === today) return 'Today';
+    if (dateKey === tomorrow) return 'Tomorrow';
+    const d = new Date(dateKey + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+/**
+ * Apply the merge: for each group keep the radio-selected task, remove others.
+ */
+function applyDuplicateMerge(groups) {
+    let removedCount = 0;
+
+    // Process groups in reverse so splicing indices stay valid
+    // Also collect removals per dateKey to handle index shifts
+    const removalsByDate = {}; // dateKey -> Set of indices to remove
+
+    groups.forEach((group, gi) => {
+        const selectedRadio = document.querySelector(`input[name="dup-group-${gi}"]:checked`);
+        const keepIndex = selectedRadio ? parseInt(selectedRadio.value) : 0;
+
+        group.items.forEach((item, ii) => {
+            if (ii === keepIndex) return; // keep this one
+            if (!removalsByDate[item.dateKey]) {
+                removalsByDate[item.dateKey] = new Set();
+            }
+            removalsByDate[item.dateKey].add(item.index);
+        });
+    });
+
+    // Remove duplicates from daily tasks (process indices in descending order)
+    for (const [dateKey, indices] of Object.entries(removalsByDate)) {
+        const tasks = AppState.data.daily[dateKey]?.tasks;
+        if (!tasks) continue;
+
+        const sortedIndices = [...indices].sort((a, b) => b - a);
+        for (const idx of sortedIndices) {
+            if (idx >= 0 && idx < tasks.length) {
+                const removed = tasks[idx];
+                tasks.splice(idx, 1);
+                removedCount++;
+
+                // Also clean up eisenhower if this was a matrix-sourced task
+                if (removed.source === 'eisenhower' && removed.quadrant) {
+                    const eTasks = AppState.data.eisenhower[removed.quadrant];
+                    if (eTasks) {
+                        const eIdx = eTasks.findIndex(t => t.id === removed.id);
+                        if (eIdx !== -1) {
+                            // Only remove from eisenhower if the KEPT task is still there
+                            // (i.e., don't orphan the eisenhower entry)
+                            const keptInDaily = tasks.some(t => t.id === removed.id);
+                            if (keptInDaily) {
+                                // Another copy with same ID still exists — safe to remove eisenhower dupe
+                            } else {
+                                // The kept copy has a different ID — don't remove eisenhower entry
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Clean up empty date entries
+        if (tasks.length === 0) {
+            delete AppState.data.daily[dateKey];
+        }
+    }
+
+    // Also deduplicate within eisenhower quadrants (same ID or same text)
+    for (const [quadrant, eTasks] of Object.entries(AppState.data.eisenhower)) {
+        const seen = new Map(); // normalized text -> first index
+        const toRemove = [];
+        eTasks.forEach((task, i) => {
+            const key = normalizeTaskText(task.text);
+            if (seen.has(key)) {
+                toRemove.push(i);
+            } else {
+                seen.set(key, i);
+            }
+        });
+        // Remove in reverse
+        for (let i = toRemove.length - 1; i >= 0; i--) {
+            eTasks.splice(toRemove[i], 1);
+            removedCount++;
+        }
+    }
+
+    saveData();
+    renderCalendar();
+    renderEisenhowerMatrix();
+
+    showToast(removedCount > 0
+        ? `Merged ${removedCount} duplicate task${removedCount > 1 ? 's' : ''}`
+        : 'No duplicates to merge');
 }
 
 // ==================== Smart AI Schedule ====================
@@ -3968,8 +4313,9 @@ function initSmartSchedule() {
                             task.startTime = item.startTime;
                             task.scheduledDate = dateKey;
 
-                            // Add to daily if not already there
-                            if (!AppState.data.daily[dateKey].tasks.find(t => t.id === task.id)) {
+                            // Add to daily if not already there (check ID and text)
+                            const _tNorm = normalizeTaskText(task.text);
+                            if (!AppState.data.daily[dateKey].tasks.find(t => t.id === task.id || normalizeTaskText(t.text) === _tNorm)) {
                                 AppState.data.daily[dateKey].tasks.push({ ...task });
                             }
                             break;
