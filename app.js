@@ -2096,6 +2096,258 @@ const GoogleCalendarState = {
     selectedCalendars: JSON.parse(localStorage.getItem('selectedCalendars') || '["primary"]')
 };
 
+// ==================== Outlook Calendar Integration ====================
+const OutlookCalendarState = {
+    isConnected: false,
+    accessToken: null,
+    msalInstance: null,
+    clientId: localStorage.getItem('outlookClientId') || '',
+    syncToOutlook: localStorage.getItem('outlookSyncTo') !== 'false',
+    syncFromOutlook: localStorage.getItem('outlookSyncFrom') === 'true',
+    account: null
+};
+
+const OUTLOOK_SCOPES = ['Calendars.ReadWrite', 'User.Read'];
+
+// Initialize MSAL for Outlook
+async function initOutlookAuth() {
+    if (!OutlookCalendarState.clientId) return;
+    if (typeof msal === 'undefined') {
+        console.warn('MSAL library not loaded yet');
+        return;
+    }
+
+    try {
+        const msalConfig = {
+            auth: {
+                clientId: OutlookCalendarState.clientId,
+                authority: 'https://login.microsoftonline.com/common',
+                redirectUri: window.location.origin + window.location.pathname
+            },
+            cache: {
+                cacheLocation: 'localStorage',
+                storeAuthStateInCookie: false
+            }
+        };
+
+        OutlookCalendarState.msalInstance = new msal.PublicClientApplication(msalConfig);
+        await OutlookCalendarState.msalInstance.initialize();
+
+        // Handle redirect callback
+        const response = await OutlookCalendarState.msalInstance.handleRedirectPromise();
+        if (response) {
+            OutlookCalendarState.account = response.account;
+            OutlookCalendarState.accessToken = response.accessToken;
+            OutlookCalendarState.isConnected = true;
+            window.dispatchEvent(new Event('outlookStatusChanged'));
+        } else {
+            // Check for existing account
+            const accounts = OutlookCalendarState.msalInstance.getAllAccounts();
+            if (accounts.length > 0) {
+                OutlookCalendarState.account = accounts[0];
+                // Try silent token acquisition
+                try {
+                    const tokenResponse = await OutlookCalendarState.msalInstance.acquireTokenSilent({
+                        scopes: OUTLOOK_SCOPES,
+                        account: OutlookCalendarState.account
+                    });
+                    OutlookCalendarState.accessToken = tokenResponse.accessToken;
+                    OutlookCalendarState.isConnected = true;
+                    window.dispatchEvent(new Event('outlookStatusChanged'));
+                } catch {
+                    // Token expired — user will need to reconnect
+                }
+            }
+        }
+    } catch (err) {
+        console.error('MSAL init error:', err);
+    }
+}
+
+// Connect Outlook Calendar (popup login)
+async function connectOutlookCalendar() {
+    if (!OutlookCalendarState.msalInstance) {
+        await initOutlookAuth();
+    }
+    if (!OutlookCalendarState.msalInstance) {
+        showToast('Enter your Outlook Client ID in Settings first');
+        return;
+    }
+
+    try {
+        const loginResponse = await OutlookCalendarState.msalInstance.loginPopup({
+            scopes: OUTLOOK_SCOPES
+        });
+        OutlookCalendarState.account = loginResponse.account;
+
+        const tokenResponse = await OutlookCalendarState.msalInstance.acquireTokenSilent({
+            scopes: OUTLOOK_SCOPES,
+            account: OutlookCalendarState.account
+        });
+        OutlookCalendarState.accessToken = tokenResponse.accessToken;
+        OutlookCalendarState.isConnected = true;
+        window.dispatchEvent(new Event('outlookStatusChanged'));
+        showToast('Connected to Outlook Calendar');
+    } catch (err) {
+        console.error('Outlook login error:', err);
+        showToast('Outlook connection failed: ' + (err.message || 'Unknown error'));
+    }
+}
+
+// Disconnect Outlook Calendar
+function disconnectOutlookCalendar() {
+    if (OutlookCalendarState.msalInstance && OutlookCalendarState.account) {
+        OutlookCalendarState.msalInstance.logout({
+            account: OutlookCalendarState.account
+        }).catch(() => {});
+    }
+    OutlookCalendarState.isConnected = false;
+    OutlookCalendarState.accessToken = null;
+    OutlookCalendarState.account = null;
+    window.dispatchEvent(new Event('outlookStatusChanged'));
+    showToast('Disconnected from Outlook');
+}
+
+// Helper: get a valid Outlook access token (refreshes silently if needed)
+async function getOutlookToken() {
+    if (!OutlookCalendarState.msalInstance || !OutlookCalendarState.account) return null;
+    try {
+        const response = await OutlookCalendarState.msalInstance.acquireTokenSilent({
+            scopes: OUTLOOK_SCOPES,
+            account: OutlookCalendarState.account
+        });
+        OutlookCalendarState.accessToken = response.accessToken;
+        return response.accessToken;
+    } catch {
+        OutlookCalendarState.isConnected = false;
+        window.dispatchEvent(new Event('outlookStatusChanged'));
+        return null;
+    }
+}
+
+// Sync tasks TO Outlook Calendar
+async function syncToOutlookCalendar() {
+    if (!OutlookCalendarState.isConnected || !OutlookCalendarState.syncToOutlook) return;
+
+    const token = await getOutlookToken();
+    if (!token) return;
+
+    showToast('Syncing to Outlook Calendar...');
+
+    let syncedCount = 0;
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    try {
+        for (const quadrant of Object.keys(AppState.data.eisenhower)) {
+            const tasks = AppState.data.eisenhower[quadrant];
+            for (const task of tasks) {
+                if (!task.scheduledDate || task.outlookEventId) continue;
+
+                const startTime = task.startTime || DEFAULT_START_TIME;
+                const startDate = new Date(task.scheduledDate + 'T' + startTime + ':00');
+                const endDate = new Date(startDate);
+                const duration = task.duration || DEFAULT_DURATION;
+                endDate.setHours(startDate.getHours() + Math.floor(duration));
+                endDate.setMinutes(startDate.getMinutes() + (duration % 1) * 60);
+
+                const event = {
+                    subject: task.text,
+                    body: { contentType: 'Text', content: `Priority: ${QUADRANT_NAMES[quadrant]}\nCreated by High-Performance Planner` },
+                    start: { dateTime: startDate.toISOString(), timeZone: tz },
+                    end: { dateTime: endDate.toISOString(), timeZone: tz }
+                };
+
+                const resp = await fetch('https://graph.microsoft.com/v1.0/me/events', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(event)
+                });
+
+                if (resp.ok) {
+                    const created = await resp.json();
+                    task.outlookEventId = created.id;
+                    syncedCount++;
+                }
+            }
+        }
+
+        saveData();
+        showToast(`Synced ${syncedCount} task${syncedCount !== 1 ? 's' : ''} to Outlook Calendar`);
+    } catch (err) {
+        console.error('Outlook sync error:', err);
+        showToast('Outlook sync failed');
+    }
+}
+
+// Sync events FROM Outlook Calendar
+async function syncFromOutlookCalendar() {
+    if (!OutlookCalendarState.isConnected || !OutlookCalendarState.syncFromOutlook) return;
+
+    const token = await getOutlookToken();
+    if (!token) return;
+
+    showToast('Importing from Outlook Calendar...');
+
+    try {
+        const today = new Date();
+        const nextMonth = new Date(today);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+        const url = `https://graph.microsoft.com/v1.0/me/calendarview?startDateTime=${today.toISOString()}&endDateTime=${nextMonth.toISOString()}&$top=100&$orderby=start/dateTime`;
+
+        const resp = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!resp.ok) throw new Error('Failed to fetch Outlook events');
+
+        const data = await resp.json();
+        const events = data.value || [];
+
+        let totalImported = 0;
+
+        for (const event of events) {
+            if (!event.start?.dateTime) continue;
+
+            const startDate = new Date(event.start.dateTime + (event.start.dateTime.endsWith('Z') ? '' : 'Z'));
+            const endDate = new Date(event.end.dateTime + (event.end.dateTime.endsWith('Z') ? '' : 'Z'));
+            const dateKey = formatDate(startDate);
+            const duration = (endDate - startDate) / (1000 * 60 * 60);
+            const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
+
+            const existingTasks = AppState.data.daily[dateKey]?.tasks || [];
+            const alreadyExists = existingTasks.some(t => t.outlookEventId === event.id);
+
+            if (!alreadyExists) {
+                if (!AppState.data.daily[dateKey]) {
+                    AppState.data.daily[dateKey] = { tasks: [] };
+                }
+
+                AppState.data.daily[dateKey].tasks.push({
+                    id: Date.now() + Math.random(),
+                    text: event.subject || 'Untitled Event',
+                    completed: false,
+                    duration: Math.round(duration * 10) / 10,
+                    startTime: startTime,
+                    source: 'outlook',
+                    outlookEventId: event.id
+                });
+                totalImported++;
+            }
+        }
+
+        saveData();
+        renderCalendar();
+        showToast(`Imported ${totalImported} event${totalImported !== 1 ? 's' : ''} from Outlook`);
+    } catch (err) {
+        console.error('Outlook import error:', err);
+        showToast('Outlook import failed');
+    }
+}
+
 // Fetch available calendars from Google
 async function fetchAvailableCalendars() {
     if (!GoogleCalendarState.isConnected) return [];
@@ -2445,35 +2697,52 @@ async function syncFromGoogleCalendar() {
     }
 }
 
-// Full sync (both directions)
+// Full sync (both directions, Google + Outlook)
 // silent = true for background auto-sync (no UI updates or toasts)
 async function fullGoogleSync(silent = false) {
-    if (!GoogleCalendarState.isConnected) {
-        if (!silent) showToast('Connect to Google Calendar first');
+    const googleConnected = GoogleCalendarState.isConnected;
+    const outlookConnected = OutlookCalendarState.isConnected;
+
+    if (!googleConnected && !outlookConnected) {
+        if (!silent) showToast('Connect a calendar account first');
         return;
     }
 
     const syncBtn = document.getElementById('googleSyncBtn');
 
-    if (!silent) {
+    if (!silent && syncBtn) {
         syncBtn.innerHTML = '<span>⏳</span> <span>Syncing...</span>';
         syncBtn.disabled = true;
     }
 
     try {
         let synced = false;
-        if (GoogleCalendarState.syncToGoogle) {
-            await syncToGoogleCalendar();
-            synced = true;
-        }
-        if (GoogleCalendarState.syncFromGoogle) {
-            await syncFromGoogleCalendar();
-            synced = true;
+
+        // Google Calendar sync
+        if (googleConnected) {
+            if (GoogleCalendarState.syncToGoogle) {
+                await syncToGoogleCalendar();
+                synced = true;
+            }
+            if (GoogleCalendarState.syncFromGoogle) {
+                await syncFromGoogleCalendar();
+                synced = true;
+            }
+            if (GoogleCalendarState.syncToGoogle && typeof BidTracker !== 'undefined') {
+                await syncBidDeadlinesToGoogle();
+            }
         }
 
-        // Also sync bid deadlines to Google Calendar if enabled
-        if (GoogleCalendarState.syncToGoogle && typeof BidTracker !== 'undefined') {
-            await syncBidDeadlinesToGoogle();
+        // Outlook Calendar sync
+        if (outlookConnected) {
+            if (OutlookCalendarState.syncToOutlook) {
+                await syncToOutlookCalendar();
+                synced = true;
+            }
+            if (OutlookCalendarState.syncFromOutlook) {
+                await syncFromOutlookCalendar();
+                synced = true;
+            }
         }
 
         if (!silent && synced) {
@@ -2485,7 +2754,7 @@ async function fullGoogleSync(silent = false) {
         }
         throw error;
     } finally {
-        if (!silent) {
+        if (!silent && syncBtn) {
             syncBtn.innerHTML = '<span>🔄</span> <span>Sync Now</span>';
             syncBtn.disabled = false;
         }
@@ -3638,6 +3907,12 @@ function initSettings() {
             GoogleCalendarState.isConnected = false;
             updateGoogleStatus();
             updateSettingsStatus();
+            OutlookCalendarState.clientId = '';
+            OutlookCalendarState.isConnected = false;
+            OutlookCalendarState.accessToken = null;
+            OutlookCalendarState.account = null;
+            if (outlookClientIdInput) outlookClientIdInput.value = '';
+            updateOutlookSettingsStatus();
             showToast('All data cleared');
         }
     });
@@ -3668,6 +3943,147 @@ function initSettings() {
     if (GoogleCalendarState.isConnected) {
         updateCalendarSelectionUI();
     }
+
+    // ==================== Outlook Settings ====================
+    const outlookClientIdInput = document.getElementById('outlookClientId');
+    const saveOutlookClientIdBtn = document.getElementById('saveOutlookClientId');
+    const settingsConnectOutlookBtn = document.getElementById('settingsConnectOutlook');
+    const settingsDisconnectOutlookBtn = document.getElementById('settingsDisconnectOutlook');
+    const settingsOutlookStatus = document.getElementById('settingsOutlookStatus');
+    const outlookSyncTo = document.getElementById('outlookSyncTo');
+    const outlookSyncFrom = document.getElementById('outlookSyncFrom');
+
+    if (outlookClientIdInput) {
+        outlookClientIdInput.value = OutlookCalendarState.clientId || '';
+    }
+    if (outlookSyncTo) outlookSyncTo.checked = OutlookCalendarState.syncToOutlook;
+    if (outlookSyncFrom) outlookSyncFrom.checked = OutlookCalendarState.syncFromOutlook;
+
+    function updateOutlookSettingsStatus() {
+        if (!settingsOutlookStatus) return;
+        const label = settingsOutlookStatus.querySelector('.status-label');
+        if (OutlookCalendarState.isConnected) {
+            settingsOutlookStatus.classList.remove('disconnected');
+            settingsOutlookStatus.classList.add('connected');
+            label.textContent = OutlookCalendarState.account?.username || 'Connected';
+            if (settingsConnectOutlookBtn) settingsConnectOutlookBtn.style.display = 'none';
+            if (settingsDisconnectOutlookBtn) settingsDisconnectOutlookBtn.style.display = 'inline-flex';
+        } else {
+            settingsOutlookStatus.classList.remove('connected');
+            settingsOutlookStatus.classList.add('disconnected');
+            label.textContent = 'Not connected';
+            if (settingsConnectOutlookBtn) settingsConnectOutlookBtn.style.display = 'inline-flex';
+            if (settingsDisconnectOutlookBtn) settingsDisconnectOutlookBtn.style.display = 'none';
+        }
+        renderConnectedAccounts();
+    }
+    updateOutlookSettingsStatus();
+
+    if (saveOutlookClientIdBtn) {
+        saveOutlookClientIdBtn.addEventListener('click', () => {
+            const val = outlookClientIdInput.value.trim();
+            if (val) {
+                OutlookCalendarState.clientId = val;
+                localStorage.setItem('outlookClientId', val);
+                showToast('Outlook Client ID saved');
+            } else {
+                showToast('Please enter a valid Client ID');
+            }
+        });
+    }
+
+    if (settingsConnectOutlookBtn) {
+        settingsConnectOutlookBtn.addEventListener('click', async () => {
+            if (!OutlookCalendarState.clientId) {
+                showToast('Please save an Outlook Client ID first');
+                return;
+            }
+            await connectOutlookCalendar();
+        });
+    }
+
+    if (settingsDisconnectOutlookBtn) {
+        settingsDisconnectOutlookBtn.addEventListener('click', () => {
+            disconnectOutlookCalendar();
+            updateOutlookSettingsStatus();
+        });
+    }
+
+    if (outlookSyncTo) {
+        outlookSyncTo.addEventListener('change', () => {
+            OutlookCalendarState.syncToOutlook = outlookSyncTo.checked;
+            localStorage.setItem('outlookSyncTo', outlookSyncTo.checked);
+        });
+    }
+
+    if (outlookSyncFrom) {
+        outlookSyncFrom.addEventListener('change', () => {
+            OutlookCalendarState.syncFromOutlook = outlookSyncFrom.checked;
+            localStorage.setItem('outlookSyncFrom', outlookSyncFrom.checked);
+        });
+    }
+
+    window.addEventListener('outlookStatusChanged', () => {
+        updateOutlookSettingsStatus();
+    });
+
+    // Initialize Outlook auth if client ID exists
+    if (OutlookCalendarState.clientId) {
+        const checkMsalLoaded = setInterval(() => {
+            if (typeof msal !== 'undefined') {
+                clearInterval(checkMsalLoaded);
+                initOutlookAuth();
+            }
+        }, 100);
+        setTimeout(() => clearInterval(checkMsalLoaded), 5000);
+    }
+
+    // ==================== Connected Accounts Overview ====================
+    function renderConnectedAccounts() {
+        const container = document.getElementById('connectedAccountsList');
+        if (!container) return;
+
+        const accounts = [];
+
+        if (GoogleCalendarState.isConnected) {
+            accounts.push({
+                provider: 'Google',
+                icon: '📅',
+                label: GoogleCalendarState.clientId ? 'Google Calendar' : 'Google',
+                status: 'Connected',
+                color: '#4285f4'
+            });
+        }
+
+        if (OutlookCalendarState.isConnected) {
+            accounts.push({
+                provider: 'Outlook',
+                icon: '📬',
+                label: OutlookCalendarState.account?.username || 'Outlook Calendar',
+                status: 'Connected',
+                color: '#0078d4'
+            });
+        }
+
+        if (accounts.length === 0) {
+            container.innerHTML = '<p class="empty-accounts-hint">No calendar accounts connected. Use the Google or Outlook sections above to connect.</p>';
+            return;
+        }
+
+        container.innerHTML = accounts.map(a => `
+            <div class="connected-account-item" style="--acct-color: ${a.color}">
+                <span class="acct-icon">${a.icon}</span>
+                <div class="acct-info">
+                    <span class="acct-label">${a.label}</span>
+                    <span class="acct-status">${a.status}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    renderConnectedAccounts();
+    window.addEventListener('googleStatusChanged', renderConnectedAccounts);
+    window.addEventListener('outlookStatusChanged', renderConnectedAccounts);
 
     // ==================== AI Settings ====================
     const aiProvider = document.getElementById('aiProvider');
@@ -3946,7 +4362,8 @@ function openDuplicateMergeModal() {
                 itemEl.className = 'duplicate-item' + (ii === 0 ? ' selected' : '');
 
                 const sourceLabel = item.task.source === 'eisenhower' ? 'Matrix' :
-                                    item.task.source === 'google' ? 'Google' : 'Daily';
+                                    item.task.source === 'google' ? 'Google' :
+                                    item.task.source === 'outlook' ? 'Outlook' : 'Daily';
                 const sourceClass = 'dup-source-' + (item.task.source || 'daily');
                 const quadrantLabel = item.task.quadrant ? QUADRANT_NAMES[item.task.quadrant] : '';
                 const durationLabel = item.task.duration ? item.task.duration + 'h' : '';
@@ -3989,9 +4406,13 @@ function openDuplicateMergeModal() {
     modal.onclick = (e) => { if (e.target === modal) closeModal(); };
 
     // Wire up merge
-    applyBtn.onclick = () => {
-        applyDuplicateMerge(groups);
+    applyBtn.onclick = async () => {
+        applyBtn.disabled = true;
+        applyBtn.textContent = 'Merging...';
         closeModal();
+        await applyDuplicateMerge(groups);
+        applyBtn.disabled = false;
+        applyBtn.textContent = 'Merge Selected';
     };
 
     modal.classList.remove('hidden');
@@ -4019,10 +4440,47 @@ function formatDateLabel(dateKey) {
 }
 
 /**
- * Apply the merge: for each group keep the radio-selected task, remove others.
+ * Delete a Google Calendar event by its ID.  Returns true on success.
  */
-function applyDuplicateMerge(groups) {
+async function deleteGoogleCalendarEvent(googleEventId, calendarId) {
+    if (!GoogleCalendarState.isConnected || !googleEventId) return false;
+    try {
+        await gapi.client.calendar.events.delete({
+            calendarId: calendarId || 'primary',
+            eventId: googleEventId
+        });
+        return true;
+    } catch (err) {
+        console.warn('Failed to delete Google Calendar event', googleEventId, err);
+        return false;
+    }
+}
+
+/**
+ * Delete an Outlook Calendar event by its ID. Returns true on success.
+ */
+async function deleteOutlookCalendarEvent(outlookEventId) {
+    if (!OutlookCalendarState.isConnected || !outlookEventId) return false;
+    try {
+        await fetch(`https://graph.microsoft.com/v1.0/me/events/${outlookEventId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${OutlookCalendarState.accessToken}` }
+        });
+        return true;
+    } catch (err) {
+        console.warn('Failed to delete Outlook Calendar event', outlookEventId, err);
+        return false;
+    }
+}
+
+/**
+ * Apply the merge: for each group keep the radio-selected task, remove others.
+ * Also deletes the corresponding Google/Outlook Calendar events for removed tasks.
+ */
+async function applyDuplicateMerge(groups) {
     let removedCount = 0;
+    const googleEventsToDelete = []; // { eventId, calendarId }
+    const outlookEventsToDelete = []; // eventId strings
 
     // Process groups in reverse so splicing indices stay valid
     // Also collect removals per dateKey to handle index shifts
@@ -4053,19 +4511,28 @@ function applyDuplicateMerge(groups) {
                 tasks.splice(idx, 1);
                 removedCount++;
 
+                // Collect Google Calendar events to delete
+                if (removed.googleEventId) {
+                    googleEventsToDelete.push({
+                        eventId: removed.googleEventId,
+                        calendarId: removed.googleCalendarId || 'primary'
+                    });
+                }
+
+                // Collect Outlook Calendar events to delete
+                if (removed.outlookEventId) {
+                    outlookEventsToDelete.push(removed.outlookEventId);
+                }
+
                 // Also clean up eisenhower if this was a matrix-sourced task
                 if (removed.source === 'eisenhower' && removed.quadrant) {
                     const eTasks = AppState.data.eisenhower[removed.quadrant];
                     if (eTasks) {
                         const eIdx = eTasks.findIndex(t => t.id === removed.id);
                         if (eIdx !== -1) {
-                            // Only remove from eisenhower if the KEPT task is still there
-                            // (i.e., don't orphan the eisenhower entry)
                             const keptInDaily = tasks.some(t => t.id === removed.id);
                             if (keptInDaily) {
-                                // Another copy with same ID still exists — safe to remove eisenhower dupe
-                            } else {
-                                // The kept copy has a different ID — don't remove eisenhower entry
+                                // Another copy with same ID still exists — safe
                             }
                         }
                     }
@@ -4093,6 +4560,16 @@ function applyDuplicateMerge(groups) {
         });
         // Remove in reverse
         for (let i = toRemove.length - 1; i >= 0; i--) {
+            const removed = eTasks[toRemove[i]];
+            if (removed.googleEventId) {
+                googleEventsToDelete.push({
+                    eventId: removed.googleEventId,
+                    calendarId: removed.googleCalendarId || 'primary'
+                });
+            }
+            if (removed.outlookEventId) {
+                outlookEventsToDelete.push(removed.outlookEventId);
+            }
             eTasks.splice(toRemove[i], 1);
             removedCount++;
         }
@@ -4102,8 +4579,30 @@ function applyDuplicateMerge(groups) {
     renderCalendar();
     renderEisenhowerMatrix();
 
+    // Delete from Google Calendar in the background
+    let gcalDeleted = 0;
+    if (googleEventsToDelete.length > 0 && GoogleCalendarState.isConnected) {
+        for (const { eventId, calendarId } of googleEventsToDelete) {
+            const ok = await deleteGoogleCalendarEvent(eventId, calendarId);
+            if (ok) gcalDeleted++;
+        }
+    }
+
+    // Delete from Outlook Calendar in the background
+    let outlookDeleted = 0;
+    if (outlookEventsToDelete.length > 0 && OutlookCalendarState.isConnected) {
+        for (const eventId of outlookEventsToDelete) {
+            const ok = await deleteOutlookCalendarEvent(eventId);
+            if (ok) outlookDeleted++;
+        }
+    }
+
+    const calLabel = (gcalDeleted + outlookDeleted) > 0
+        ? ` (${gcalDeleted + outlookDeleted} removed from calendar)`
+        : '';
+
     showToast(removedCount > 0
-        ? `Merged ${removedCount} duplicate task${removedCount > 1 ? 's' : ''}`
+        ? `Merged ${removedCount} duplicate task${removedCount > 1 ? 's' : ''}${calLabel}`
         : 'No duplicates to merge');
 }
 

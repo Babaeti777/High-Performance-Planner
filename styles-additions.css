@@ -1102,3 +1102,53 @@ button:focus-visible,
     margin-bottom: 14px;
     text-align: center;
 }
+
+.duplicate-item-meta .dup-source-outlook {
+    color: #0078d4;
+}
+
+/* ==================== Connected Accounts Overview ==================== */
+.connected-accounts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.empty-accounts-hint {
+    color: var(--text-muted, #888);
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 12px;
+}
+
+.connected-account-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: var(--bg-tertiary, rgba(255,255,255,0.03));
+    border-left: 3px solid var(--acct-color, #6366f1);
+}
+
+.connected-account-item .acct-icon {
+    font-size: 1.3rem;
+}
+
+.connected-account-item .acct-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.connected-account-item .acct-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.connected-account-item .acct-status {
+    font-size: 0.75rem;
+    color: #22c55e;
+    font-weight: 500;
+}
