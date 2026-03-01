@@ -458,6 +458,8 @@ function renderCalendar() {
                 }
                 if (task.quadrant) {
                     taskDiv.style.borderLeftColor = QUADRANT_COLORS[task.quadrant];
+                } else if (task.color) {
+                    taskDiv.style.borderLeftColor = task.color;
                 }
 
                 // Show duration
@@ -796,7 +798,7 @@ function renderDayView(date) {
         ganttBar.className = 'gantt-bar';
         if (task.completed) ganttBar.classList.add('completed');
 
-        const color = task.quadrant ? QUADRANT_COLORS[task.quadrant] : 'var(--accent-primary)';
+        const color = task.quadrant ? QUADRANT_COLORS[task.quadrant] : (task.color || 'var(--accent-primary)');
         ganttBar.style.backgroundColor = color;
         ganttBar.style.left = `${startOffset}px`;
         ganttBar.style.width = `${widthPx}px`;
@@ -818,7 +820,11 @@ function renderDayView(date) {
         taskItem.className = 'day-task-item-detail';
         if (task.completed) taskItem.classList.add('completed');
 
-        const quadrantBadge = task.quadrant ? `<span class="quadrant-badge" style="background: ${QUADRANT_COLORS[task.quadrant]}">${QUADRANT_NAMES[task.quadrant]}</span>` : '';
+        const quadrantBadge = task.quadrant
+            ? `<span class="quadrant-badge" style="background: ${QUADRANT_COLORS[task.quadrant]}">${QUADRANT_NAMES[task.quadrant]}</span>`
+            : (task.source === 'bid-tracker' && task.color
+                ? `<span class="quadrant-badge" style="background: ${task.color}">Bid</span>`
+                : '');
 
         taskItem.innerHTML = `
             <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''}>
@@ -978,7 +984,7 @@ function renderWeekView() {
             taskBlock.className = 'week-task-block';
             if (task.completed) taskBlock.classList.add('completed');
 
-            const color = task.quadrant ? QUADRANT_COLORS[task.quadrant] : 'var(--accent-primary)';
+            const color = task.quadrant ? QUADRANT_COLORS[task.quadrant] : (task.color || 'var(--accent-primary)');
             taskBlock.style.backgroundColor = color;
             taskBlock.style.top = `${topOffset}px`;
             taskBlock.style.height = `${height}px`;
