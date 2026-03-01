@@ -128,8 +128,29 @@ function getMonthKey(month, year) {
     return `${year}-${String(month + 1).padStart(2, '0')}`;
 }
 
-function saveData() {
-    localStorage.setItem('plannerData', JSON.stringify(AppState.data));
+// Debounced save to avoid excessive localStorage writes
+let _saveTimeout = null;
+function saveData(immediate = false) {
+    if (_saveTimeout) {
+        clearTimeout(_saveTimeout);
+        _saveTimeout = null;
+    }
+    const doSave = () => {
+        try {
+            localStorage.setItem('plannerData', JSON.stringify(AppState.data));
+        } catch (e) {
+            if (e.name === 'QuotaExceededError') {
+                showToast('Storage is full! Please export your data and clear old items.');
+            } else {
+                console.error('Failed to save data:', e);
+            }
+        }
+    };
+    if (immediate) {
+        doSave();
+    } else {
+        _saveTimeout = setTimeout(doSave, 300);
+    }
 }
 
 function loadData() {
@@ -153,6 +174,7 @@ function loadData() {
 
 // ==================== Holiday Data ====================
 const holidays = {
+    // 2025
     '2025-01-01': 'New Year\'s Day',
     '2025-01-20': 'Martin Luther King Jr. Day',
     '2025-02-14': 'Valentine\'s Day',
@@ -171,7 +193,44 @@ const holidays = {
     '2025-11-27': 'Thanksgiving',
     '2025-12-25': 'Christmas Day',
     '2025-12-31': 'New Year\'s Eve',
-    '2026-01-01': 'New Year\'s Day'
+    // 2026
+    '2026-01-01': 'New Year\'s Day',
+    '2026-01-19': 'Martin Luther King Jr. Day',
+    '2026-02-14': 'Valentine\'s Day',
+    '2026-02-16': 'Presidents\' Day',
+    '2026-03-17': 'St. Patrick\'s Day',
+    '2026-04-05': 'Easter Sunday',
+    '2026-05-10': 'Mother\'s Day',
+    '2026-05-25': 'Memorial Day',
+    '2026-06-19': 'Juneteenth',
+    '2026-06-21': 'Father\'s Day',
+    '2026-07-04': 'Independence Day',
+    '2026-09-07': 'Labor Day',
+    '2026-10-12': 'Columbus Day',
+    '2026-10-31': 'Halloween',
+    '2026-11-11': 'Veterans Day',
+    '2026-11-26': 'Thanksgiving',
+    '2026-12-25': 'Christmas Day',
+    '2026-12-31': 'New Year\'s Eve',
+    // 2027
+    '2027-01-01': 'New Year\'s Day',
+    '2027-01-18': 'Martin Luther King Jr. Day',
+    '2027-02-14': 'Valentine\'s Day',
+    '2027-02-15': 'Presidents\' Day',
+    '2027-03-17': 'St. Patrick\'s Day',
+    '2027-03-28': 'Easter Sunday',
+    '2027-05-09': 'Mother\'s Day',
+    '2027-05-31': 'Memorial Day',
+    '2027-06-19': 'Juneteenth',
+    '2027-06-20': 'Father\'s Day',
+    '2027-07-04': 'Independence Day',
+    '2027-09-06': 'Labor Day',
+    '2027-10-11': 'Columbus Day',
+    '2027-10-31': 'Halloween',
+    '2027-11-11': 'Veterans Day',
+    '2027-11-25': 'Thanksgiving',
+    '2027-12-25': 'Christmas Day',
+    '2027-12-31': 'New Year\'s Eve'
 };
 
 function getHoliday(date) {
@@ -180,14 +239,15 @@ function getHoliday(date) {
 
 // ==================== Core Task Functions ====================
 function createTask(text, options = {}) {
-    const taskId = Date.now() + Math.random();
+    const taskId = (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
     const task = {
         id: taskId,
         text: text,
         completed: false,
         duration: options.duration || DEFAULT_DURATION,
         startTime: options.startTime || DEFAULT_START_TIME,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        lastModified: Date.now()
     };
 
     if (options.quadrant) {
@@ -229,11 +289,13 @@ function addTaskToDate(dateKey, task) {
 
 function toggleTaskComplete(task, dateKey) {
     task.completed = !task.completed;
+    task.lastModified = Date.now();
 
     // Sync with Eisenhower if applicable
     if (task.source === 'eisenhower' && task.quadrant) {
         const eisenTask = AppState.data.eisenhower[task.quadrant]?.find(t => t.id === task.id);
         if (eisenTask) {
+            eisenTask.lastModified = Date.now();
             eisenTask.completed = task.completed;
         }
     }
@@ -244,19 +306,78 @@ function toggleTaskComplete(task, dateKey) {
     checkAndAutoPushNextDay(dateKey);
 }
 
+// Undo state
+let _undoStack = [];
+let _undoToastEl = null;
+let _undoTimeout = null;
+
 function deleteTask(tasks, index, task) {
+    // Store undo info before deleting
+    const undoInfo = {
+        task: JSON.parse(JSON.stringify(task)),
+        arrayRef: tasks,
+        index: index,
+        type: 'daily'
+    };
+
     tasks.splice(index, 1);
 
     // Remove from Eisenhower if applicable
+    let eisenUndoInfo = null;
     if (task.source === 'eisenhower' && task.quadrant) {
         const eisenTasks = AppState.data.eisenhower[task.quadrant];
         const eisenIndex = eisenTasks.findIndex(t => t.id === task.id);
         if (eisenIndex !== -1) {
+            eisenUndoInfo = { quadrant: task.quadrant, index: eisenIndex, task: JSON.parse(JSON.stringify(eisenTasks[eisenIndex])) };
             eisenTasks.splice(eisenIndex, 1);
         }
     }
 
     saveData();
+    showUndoToast('Task deleted', () => {
+        // Restore to daily
+        tasks.splice(Math.min(index, tasks.length), 0, undoInfo.task);
+        // Restore to Eisenhower if applicable
+        if (eisenUndoInfo) {
+            const eisenTasks = AppState.data.eisenhower[eisenUndoInfo.quadrant];
+            eisenTasks.splice(Math.min(eisenUndoInfo.index, eisenTasks.length), 0, eisenUndoInfo.task);
+        }
+        saveData();
+        showToast('Task restored');
+    });
+}
+
+function showUndoToast(message, onUndo) {
+    // Remove existing undo toast
+    if (_undoToastEl) {
+        _undoToastEl.remove();
+        _undoToastEl = null;
+    }
+    if (_undoTimeout) {
+        clearTimeout(_undoTimeout);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'undo-toast';
+    toast.innerHTML = `<span>${sanitizeHTMLInline(message)}</span>`;
+    const undoBtn = document.createElement('button');
+    undoBtn.textContent = 'Undo';
+    undoBtn.addEventListener('click', () => {
+        onUndo();
+        toast.remove();
+        _undoToastEl = null;
+        // Re-render relevant views
+        renderEisenhowerMatrix();
+        renderCalendar();
+    });
+    toast.appendChild(undoBtn);
+    document.body.appendChild(toast);
+    _undoToastEl = toast;
+
+    _undoTimeout = setTimeout(() => {
+        if (toast.parentNode) toast.remove();
+        _undoToastEl = null;
+    }, 5000);
 }
 
 // ==================== Tab Navigation ====================
@@ -790,8 +911,8 @@ function renderDayView(date) {
         const duration = task.duration || DEFAULT_DURATION;
         const [startHour, startMin] = startTime.split(':').map(Number);
 
-        // Calculate position using constants
-        const startOffset = (startHour - DAY_START_HOUR) * DAY_VIEW_PX_PER_HOUR + startMin;
+        // Calculate position using constants (clamp to 0 for tasks before DAY_START_HOUR)
+        const startOffset = Math.max(0, (startHour - DAY_START_HOUR) * DAY_VIEW_PX_PER_HOUR + startMin);
         const widthPx = duration * DAY_VIEW_PX_PER_HOUR;
 
         const ganttBar = document.createElement('div');
@@ -805,7 +926,7 @@ function renderDayView(date) {
         ganttBar.style.top = `${task._lane * GANTT_BAR_HEIGHT}px`;
 
         ganttBar.innerHTML = `
-            <span class="gantt-bar-text">${task.text}</span>
+            <span class="gantt-bar-text">${sanitizeHTMLInline(task.text)}</span>
             <span class="gantt-bar-duration">${duration}h</span>
         `;
 
@@ -829,14 +950,15 @@ function renderDayView(date) {
         taskItem.innerHTML = `
             <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''}>
             <div class="task-info">
-                <span class="task-name">${task.text}</span>
+                <span class="task-name" title="Click to edit">${sanitizeHTMLInline(task.text)}</span>
                 <div class="task-meta-row">
-                    <span class="task-time">${startTime} - ${calculateEndTime(startTime, duration)}</span>
-                    <span class="task-duration-badge">${duration}h</span>
+                    <span class="task-time" title="Click to change time">${startTime} - ${calculateEndTime(startTime, duration)}</span>
+                    <span class="task-duration-badge" title="Click to change duration">${duration}h</span>
                     ${quadrantBadge}
                 </div>
             </div>
             <div class="task-actions">
+                <button class="edit-task-btn" title="Edit task">✏️</button>
                 <button class="timer-icon-btn" title="Start countdown timer">⏳</button>
                 <button class="task-delete-btn" title="Delete">×</button>
             </div>
@@ -846,6 +968,108 @@ function renderDayView(date) {
         checkbox.addEventListener('change', () => {
             toggleTaskComplete(task, dateKey);
             renderDayView(date);
+        });
+
+        // Inline edit: click task name to edit text
+        const taskNameEl = taskItem.querySelector('.task-name');
+        taskNameEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'inline-edit-input';
+            input.value = task.text;
+            input.style.cssText = 'width:100%;padding:2px 6px;font-size:inherit;border:1px solid var(--accent-primary);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);';
+            taskNameEl.replaceWith(input);
+            input.focus();
+            input.select();
+            const finishEdit = () => {
+                const newText = input.value.trim();
+                if (newText && newText !== task.text) {
+                    task.text = newText;
+                    task.lastModified = Date.now();
+                    // Sync with Eisenhower if applicable
+                    if (task.source === 'eisenhower' && task.quadrant) {
+                        const eisenTask = AppState.data.eisenhower[task.quadrant]?.find(t => t.id === task.id);
+                        if (eisenTask) { eisenTask.text = newText; eisenTask.lastModified = Date.now(); }
+                    }
+                    saveData();
+                }
+                renderDayView(date);
+            };
+            input.addEventListener('blur', finishEdit);
+            input.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+                if (ev.key === 'Escape') { input.value = task.text; input.blur(); }
+            });
+        });
+
+        // Inline edit: click time to change start time
+        const taskTimeEl = taskItem.querySelector('.task-time');
+        taskTimeEl.style.cursor = 'pointer';
+        taskTimeEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const timeInput = document.createElement('input');
+            timeInput.type = 'time';
+            timeInput.value = task.startTime || DEFAULT_START_TIME;
+            timeInput.style.cssText = 'padding:2px 4px;font-size:12px;border:1px solid var(--accent-primary);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);';
+            taskTimeEl.replaceWith(timeInput);
+            timeInput.focus();
+            const finishTimeEdit = () => {
+                if (timeInput.value && timeInput.value !== task.startTime) {
+                    task.startTime = timeInput.value;
+                    task.lastModified = Date.now();
+                    if (task.source === 'eisenhower' && task.quadrant) {
+                        const eisenTask = AppState.data.eisenhower[task.quadrant]?.find(t => t.id === task.id);
+                        if (eisenTask) { eisenTask.startTime = timeInput.value; eisenTask.lastModified = Date.now(); }
+                    }
+                    saveData();
+                }
+                renderDayView(date);
+            };
+            timeInput.addEventListener('blur', finishTimeEdit);
+            timeInput.addEventListener('change', () => timeInput.blur());
+        });
+
+        // Inline edit: click duration to change
+        const durationBadge = taskItem.querySelector('.task-duration-badge');
+        durationBadge.style.cursor = 'pointer';
+        durationBadge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const durInput = document.createElement('input');
+            durInput.type = 'number';
+            durInput.min = '0.25';
+            durInput.max = '12';
+            durInput.step = '0.25';
+            durInput.value = task.duration || DEFAULT_DURATION;
+            durInput.style.cssText = 'width:60px;padding:2px 4px;font-size:12px;border:1px solid var(--accent-primary);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);';
+            durationBadge.replaceWith(durInput);
+            durInput.focus();
+            durInput.select();
+            const finishDurEdit = () => {
+                const newDur = parseFloat(durInput.value);
+                if (newDur > 0 && newDur !== task.duration) {
+                    task.duration = newDur;
+                    task.lastModified = Date.now();
+                    if (task.source === 'eisenhower' && task.quadrant) {
+                        const eisenTask = AppState.data.eisenhower[task.quadrant]?.find(t => t.id === task.id);
+                        if (eisenTask) { eisenTask.duration = newDur; eisenTask.lastModified = Date.now(); }
+                    }
+                    saveData();
+                }
+                renderDayView(date);
+            };
+            durInput.addEventListener('blur', finishDurEdit);
+            durInput.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter') { ev.preventDefault(); durInput.blur(); }
+                if (ev.key === 'Escape') { durInput.value = task.duration || DEFAULT_DURATION; durInput.blur(); }
+            });
+        });
+
+        // Edit button opens all fields
+        const editBtn = taskItem.querySelector('.edit-task-btn');
+        editBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            taskNameEl.click();
         });
 
         const timerBtn = taskItem.querySelector('.timer-icon-btn');
@@ -976,8 +1200,8 @@ function renderWeekView() {
             const duration = task.duration || DEFAULT_DURATION;
             const [startHour, startMin] = startTime.split(':').map(Number);
 
-            // Calculate position using constants
-            const topOffset = (startHour - DAY_START_HOUR) * WEEK_VIEW_PX_PER_HOUR + (startMin / 60) * WEEK_VIEW_PX_PER_HOUR;
+            // Calculate position using constants (clamp to 0 for early tasks)
+            const topOffset = Math.max(0, (startHour - DAY_START_HOUR) * WEEK_VIEW_PX_PER_HOUR + (startMin / 60) * WEEK_VIEW_PX_PER_HOUR);
             const height = duration * WEEK_VIEW_PX_PER_HOUR;
 
             const taskBlock = document.createElement('div');
@@ -990,7 +1214,7 @@ function renderWeekView() {
             taskBlock.style.height = `${height}px`;
 
             taskBlock.innerHTML = `
-                <span class="week-task-text">${task.text}</span>
+                <span class="week-task-text">${sanitizeHTMLInline(task.text)}</span>
                 <span class="week-task-duration">${duration}h</span>
             `;
 
@@ -1179,6 +1403,16 @@ function initTimer() {
 }
 
 function startTaskTimer(task, dateKey = null) {
+    // Clear any existing intervals to prevent stacking
+    if (TimerState.interval) {
+        clearInterval(TimerState.interval);
+        TimerState.interval = null;
+    }
+    if (TimerState.motivationInterval) {
+        clearInterval(TimerState.motivationInterval);
+        TimerState.motivationInterval = null;
+    }
+
     const durationHours = task.duration || DEFAULT_DURATION;
     const durationSeconds = Math.floor(durationHours * 3600);
 
@@ -1212,6 +1446,12 @@ function startTaskTimer(task, dateKey = null) {
 }
 
 function resumeCountdown() {
+    // Clear existing interval to prevent stacking
+    if (TimerState.interval) {
+        clearInterval(TimerState.interval);
+        TimerState.interval = null;
+    }
+
     TimerState.running = true;
     updatePlayPauseButton();
 
@@ -1229,11 +1469,17 @@ function resumeCountdown() {
 
         updateCountdownDisplay();
         updateProgressBar();
+
+        // Persist timer state every 5 seconds
+        if (TimerState.remainingSeconds % 5 === 0) {
+            saveTimerState();
+        }
     }, 1000);
 }
 
 function pauseCountdown() {
     TimerState.running = false;
+    clearTimerPersistence();
     if (TimerState.interval) {
         clearInterval(TimerState.interval);
         TimerState.interval = null;
@@ -1288,10 +1534,75 @@ function closeTimerAndSave() {
     TimerState.taskId = null;
     TimerState.taskDateKey = null;
     TimerState.isOvertime = false;
+    clearTimerPersistence();
 
     // Refresh views
     renderCalendar();
     renderEisenhowerMatrix();
+}
+
+// Timer persistence — save/restore through page refresh
+function saveTimerState() {
+    if (TimerState.taskId && TimerState.running) {
+        localStorage.setItem('timerState', JSON.stringify({
+            taskName: TimerState.taskName,
+            taskId: TimerState.taskId,
+            taskDateKey: TimerState.taskDateKey,
+            originalDuration: TimerState.originalDuration,
+            remainingSeconds: TimerState.remainingSeconds,
+            savedAt: Date.now(),
+            running: TimerState.running,
+            isOvertime: TimerState.isOvertime
+        }));
+    }
+}
+
+function clearTimerPersistence() {
+    localStorage.removeItem('timerState');
+}
+
+function restoreTimerState() {
+    const saved = localStorage.getItem('timerState');
+    if (!saved) return;
+    try {
+        const state = JSON.parse(saved);
+        if (!state.taskId || !state.running) {
+            clearTimerPersistence();
+            return;
+        }
+        // Calculate elapsed time since saved
+        const elapsedSeconds = Math.floor((Date.now() - state.savedAt) / 1000);
+        const adjustedRemaining = state.remainingSeconds - elapsedSeconds;
+
+        TimerState.taskName = state.taskName;
+        TimerState.taskId = state.taskId;
+        TimerState.taskDateKey = state.taskDateKey;
+        TimerState.originalDuration = state.originalDuration;
+        TimerState.remainingSeconds = adjustedRemaining;
+        TimerState.running = false;
+        TimerState.isOvertime = adjustedRemaining < 0;
+
+        // Show the timer modal
+        const timerModal = document.getElementById('timerModal');
+        const taskNameEl = document.getElementById('timerTaskName');
+        if (timerModal && taskNameEl) {
+            taskNameEl.textContent = state.taskName;
+            timerModal.classList.remove('hidden');
+            if (TimerState.isOvertime) {
+                document.getElementById('countdownLabel').textContent = 'overtime';
+                document.getElementById('timerModalContent').classList.add('overtime');
+            }
+            updateCountdownDisplay();
+            updateProgressBar();
+            showRandomMotivation();
+            TimerState.motivationInterval = setInterval(showRandomMotivation, 90000);
+            // Auto-resume
+            resumeCountdown();
+            showToast('Timer restored from previous session');
+        }
+    } catch (e) {
+        clearTimerPersistence();
+    }
 }
 
 function updateTaskDuration(taskId, dateKey, newDuration) {
@@ -1499,14 +1810,16 @@ function addEisenhowerTask(taskText, quadrant, duration, scheduledDate) {
     }
 
     const newTask = {
-        id: Date.now() + Math.random(),
+        id: (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2)),
         text: taskText,
         completed: false,
+        source: 'eisenhower',
         quadrant: quadrant,
         duration: duration,
         scheduledDate: scheduledDate,
         startTime: '09:00',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        lastModified: Date.now()
     };
 
     AppState.data.eisenhower[quadrant].push(newTask);
@@ -1600,6 +1913,7 @@ function renderEisenhowerMatrix() {
             checkbox.checked = task.completed;
             checkbox.addEventListener('change', () => {
                 task.completed = checkbox.checked;
+                task.lastModified = Date.now();
                 li.classList.toggle('completed', task.completed);
 
                 // Update in daily tasks if scheduled
@@ -1607,6 +1921,7 @@ function renderEisenhowerMatrix() {
                     const dailyTask = AppState.data.daily[task.scheduledDate].tasks.find(t => t.id === task.id);
                     if (dailyTask) {
                         dailyTask.completed = task.completed;
+                        dailyTask.lastModified = Date.now();
                     }
                 }
 
@@ -1626,6 +1941,38 @@ function renderEisenhowerMatrix() {
             const text = document.createElement('span');
             text.className = 'task-text';
             text.textContent = task.text;
+            text.title = 'Click to edit';
+            text.style.cursor = 'pointer';
+            text.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'inline-edit-input';
+                input.value = task.text;
+                input.style.cssText = 'width:100%;padding:2px 6px;font-size:inherit;border:1px solid var(--accent-primary);border-radius:4px;background:var(--bg-primary);color:var(--text-primary);';
+                text.replaceWith(input);
+                input.focus();
+                input.select();
+                const finishEdit = () => {
+                    const newText = input.value.trim();
+                    if (newText && newText !== task.text) {
+                        task.text = newText;
+                        task.lastModified = Date.now();
+                        // Sync with daily tasks if scheduled
+                        if (task.scheduledDate && AppState.data.daily[task.scheduledDate]) {
+                            const dailyTask = AppState.data.daily[task.scheduledDate].tasks.find(t => t.id === task.id);
+                            if (dailyTask) { dailyTask.text = newText; dailyTask.lastModified = Date.now(); }
+                        }
+                        saveData();
+                    }
+                    renderEisenhowerMatrix();
+                };
+                input.addEventListener('blur', finishEdit);
+                input.addEventListener('keydown', (ev) => {
+                    if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+                    if (ev.key === 'Escape') { input.value = task.text; input.blur(); }
+                });
+            });
 
             const metaInfo = document.createElement('div');
             metaInfo.className = 'task-meta';
@@ -1752,20 +2099,34 @@ function renderEisenhowerMatrix() {
                 // Find in original array (not sorted)
                 const originalIndex = tasks.findIndex(t => t.id === task.id);
                 if (originalIndex !== -1) {
+                    const taskCopy = JSON.parse(JSON.stringify(task));
                     // Remove from eisenhower
                     tasks.splice(originalIndex, 1);
 
                     // Remove from daily tasks if scheduled
+                    let dailyUndoInfo = null;
                     if (task.scheduledDate && AppState.data.daily[task.scheduledDate]) {
                         const dailyTasks = AppState.data.daily[task.scheduledDate].tasks;
                         const dailyIndex = dailyTasks.findIndex(t => t.id === task.id);
                         if (dailyIndex !== -1) {
+                            dailyUndoInfo = { dateKey: task.scheduledDate, index: dailyIndex, task: JSON.parse(JSON.stringify(dailyTasks[dailyIndex])) };
                             dailyTasks.splice(dailyIndex, 1);
                         }
                     }
 
                     saveData();
                     renderEisenhowerMatrix();
+
+                    showUndoToast('Task deleted', () => {
+                        tasks.splice(Math.min(originalIndex, tasks.length), 0, taskCopy);
+                        if (dailyUndoInfo) {
+                            const dt = AppState.data.daily[dailyUndoInfo.dateKey]?.tasks;
+                            if (dt) dt.splice(Math.min(dailyUndoInfo.index, dt.length), 0, dailyUndoInfo.task);
+                        }
+                        saveData();
+                        renderEisenhowerMatrix();
+                        showToast('Task restored');
+                    });
                 }
             });
 
@@ -1939,33 +2300,51 @@ function renderNotes() {
         const note = AppState.data.notes.find(n => n.id === AppState.selectedNote);
         if (note) {
             noteEditor.innerHTML = `
-                <div class="note-editor-title">${note.title}</div>
+                <input type="text" class="note-editor-title-input" value="${sanitizeHTMLInline(note.title)}" placeholder="Note title...">
                 <div class="note-editor-date">Last updated: ${new Date(note.updatedAt).toLocaleString()}</div>
-                <textarea class="note-editor-content" placeholder="Start writing...">${note.content}</textarea>
+                <textarea class="note-editor-content" placeholder="Start writing...">${sanitizeHTMLInline(note.content)}</textarea>
                 <div class="note-actions">
-                    <button class="btn btn-primary save-note-btn">Save</button>
+                    <span class="auto-save-indicator" style="font-size:12px;color:var(--text-muted);"></span>
                     <button class="btn btn-danger delete-note-btn">Delete</button>
                 </div>
             `;
 
+            const titleInput = noteEditor.querySelector('.note-editor-title-input');
             const textarea = noteEditor.querySelector('.note-editor-content');
-            const saveBtn = noteEditor.querySelector('.save-note-btn');
+            const autoSaveIndicator = noteEditor.querySelector('.auto-save-indicator');
             const deleteBtn = noteEditor.querySelector('.delete-note-btn');
 
-            saveBtn.addEventListener('click', () => {
-                note.content = textarea.value;
-                note.updatedAt = new Date().toISOString();
-                saveData();
+            // Auto-save with debounce
+            let autoSaveTimer = null;
+            const autoSave = () => {
+                if (autoSaveTimer) clearTimeout(autoSaveTimer);
+                autoSaveIndicator.textContent = 'Saving...';
+                autoSaveTimer = setTimeout(() => {
+                    note.content = textarea.value;
+                    note.title = titleInput.value.trim() || 'Untitled';
+                    note.updatedAt = new Date().toISOString();
+                    saveData();
+                    autoSaveIndicator.textContent = 'Saved';
+                    setTimeout(() => { autoSaveIndicator.textContent = ''; }, 2000);
+                    // Update the note list sidebar without resetting editor
+                    const notesList = document.getElementById('notesList');
+                    if (notesList) {
+                        const items = notesList.querySelectorAll('.note-item');
+                        items.forEach(item => {
+                            // Find and update the active note's title
+                            if (item.classList.contains('active')) {
+                                const titleEl = item.querySelector('.note-item-title');
+                                if (titleEl) titleEl.textContent = note.title;
+                                const dateEl = item.querySelector('.note-item-date');
+                                if (dateEl) dateEl.textContent = new Date(note.updatedAt).toLocaleDateString();
+                            }
+                        });
+                    }
+                }, 500);
+            };
 
-                saveBtn.textContent = '✓ Saved!';
-                saveBtn.style.background = 'var(--accent-secondary)';
-                setTimeout(() => {
-                    saveBtn.textContent = 'Save';
-                    saveBtn.style.background = '';
-                }, 1500);
-
-                renderNotes();
-            });
+            textarea.addEventListener('input', autoSave);
+            titleInput.addEventListener('input', autoSave);
 
             deleteBtn.addEventListener('click', () => {
                 if (confirm('Delete this note?')) {
@@ -2333,7 +2712,7 @@ async function syncFromOutlookCalendar() {
                 }
 
                 AppState.data.daily[dateKey].tasks.push({
-                    id: Date.now() + Math.random(),
+                    id: (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2)),
                     text: event.subject || 'Untitled Event',
                     completed: false,
                     duration: Math.round(duration * 10) / 10,
@@ -2574,7 +2953,7 @@ async function syncToGoogleCalendar() {
             const tasks = AppState.data.eisenhower[quadrant];
 
             for (const task of tasks) {
-                if (!task.scheduledDate || task.googleEventId) continue;
+                if (!task.scheduledDate) continue;
 
                 const startTime = task.startTime || DEFAULT_START_TIME;
                 const startDate = new Date(task.scheduledDate + 'T' + startTime + ':00');
@@ -2597,13 +2976,34 @@ async function syncToGoogleCalendar() {
                     colorId: quadrantGoogleColors[quadrant]
                 };
 
-                const response = await gapi.client.calendar.events.insert({
-                    calendarId: 'primary',
-                    resource: event
-                });
+                if (task.googleEventId) {
+                    // Update existing event if task was modified
+                    const lastSync = task.googleLastSync || 0;
+                    const lastMod = task.lastModified || 0;
+                    if (lastMod > lastSync) {
+                        try {
+                            await gapi.client.calendar.events.update({
+                                calendarId: 'primary',
+                                eventId: task.googleEventId,
+                                resource: event
+                            });
+                            task.googleLastSync = Date.now();
+                            syncedCount++;
+                        } catch (err) {
+                            console.warn('Failed to update event:', err);
+                        }
+                    }
+                } else {
+                    // Insert new event
+                    const response = await gapi.client.calendar.events.insert({
+                        calendarId: 'primary',
+                        resource: event
+                    });
 
-                task.googleEventId = response.result.id;
-                syncedCount++;
+                    task.googleEventId = response.result.id;
+                    task.googleLastSync = Date.now();
+                    syncedCount++;
+                }
             }
         }
 
@@ -2669,7 +3069,7 @@ async function syncFromGoogleCalendar() {
                         }
 
                         AppState.data.daily[dateKey].tasks.push({
-                            id: Date.now() + Math.random(),
+                            id: (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2)),
                             text: event.summary || 'Untitled Event',
                             completed: false,
                             duration: Math.round(duration * 10) / 10,
@@ -2705,11 +3105,19 @@ async function syncFromGoogleCalendar() {
 
 // Full sync (both directions, Google + Outlook)
 // silent = true for background auto-sync (no UI updates or toasts)
+let _isSyncing = false;
 async function fullGoogleSync(silent = false) {
+    if (_isSyncing) {
+        if (!silent) showToast('Sync already in progress...');
+        return;
+    }
+    _isSyncing = true;
+
     const googleConnected = GoogleCalendarState.isConnected;
     const outlookConnected = OutlookCalendarState.isConnected;
 
     if (!googleConnected && !outlookConnected) {
+        _isSyncing = false;
         if (!silent) showToast('Connect a calendar account first');
         return;
     }
@@ -2755,11 +3163,21 @@ async function fullGoogleSync(silent = false) {
             showToast('Sync complete!');
         }
     } catch (error) {
-        if (!silent) {
+        // Handle token expiry (401/403)
+        const status = error?.result?.error?.code || error?.status;
+        if (status === 401 || status === 403) {
+            showToast('Session expired — please reconnect your calendar');
+            GoogleCalendarState.isConnected = false;
+            GoogleCalendarState.accessToken = null;
+            localStorage.removeItem('googleAccessToken');
+            localStorage.removeItem('googleAuthorized');
+            updateGoogleStatus(false);
+        } else if (!silent) {
             showToast('Sync failed: ' + error.message);
         }
         throw error;
     } finally {
+        _isSyncing = false;
         if (!silent && syncBtn) {
             syncBtn.innerHTML = '<span>🔄</span> <span>Sync Now</span>';
             syncBtn.disabled = false;
@@ -3097,7 +3515,7 @@ function renderVerticalTimeline() {
                 block.style.background = '#10b981';
                 block.innerHTML = `
                     <span class="block-emoji">📋</span>
-                    <span class="block-name">${task.text}</span>
+                    <span class="block-name">${sanitizeHTMLInline(task.text)}</span>
                 `;
                 hourContent.appendChild(block);
             }
@@ -3322,6 +3740,9 @@ function getCurrentRoutine() {
     return null;
 }
 
+// Track last minute so we only re-render timeline once per minute
+let _lastClockMinute = -1;
+
 function updateClock() {
     const now = new Date();
     const hours = now.getHours();
@@ -3347,18 +3768,21 @@ function updateClock() {
         activityName.textContent = currentRoutine ? `${currentRoutine.emoji || ''} ${currentRoutine.name}` : 'Free time';
     }
 
-    // Update now marker on timeline
+    // Update now marker on timeline (lightweight — just repositions the marker)
     updateNowMarker();
 
     // Update current activity
     updateCurrentActivity();
 
-    // Re-render vertical timeline every minute to keep it current
-    if (typeof renderVerticalTimeline === 'function') {
-        renderVerticalTimeline();
-    }
-    if (typeof renderSidebarRoutines === 'function') {
-        renderSidebarRoutines();
+    // Only re-render full timeline/routines once per minute (not every second)
+    if (minutes !== _lastClockMinute) {
+        _lastClockMinute = minutes;
+        if (typeof renderVerticalTimeline === 'function') {
+            renderVerticalTimeline();
+        }
+        if (typeof renderSidebarRoutines === 'function') {
+            renderSidebarRoutines();
+        }
     }
 }
 
@@ -3458,7 +3882,7 @@ function renderTimelineTasks() {
         block.style.left = `${left}%`;
         block.style.width = `${width}%`;
         block.style.background = '#10b981';
-        block.innerHTML = `<span class="timeline-block-text">${task.text}</span>`;
+        block.innerHTML = `<span class="timeline-block-text">${sanitizeHTMLInline(task.text)}</span>`;
         block.title = `${task.text} (${task.startTime})`;
 
         container.appendChild(block);
@@ -3830,7 +4254,7 @@ function initSettings() {
             showToast('Please save a Client ID first');
             return;
         }
-        initGoogleAuth();
+        connectGoogleCalendar();
         setTimeout(updateSettingsStatus, 1000);
     });
 
@@ -3879,20 +4303,30 @@ function initSettings() {
         reader.onload = (event) => {
             try {
                 const data = JSON.parse(event.target.result);
-                if (data.tasks) {
-                    tasks = data.tasks;
-                    localStorage.setItem('plannerTasks', JSON.stringify(tasks));
+                // Validate required structure
+                const requiredKeys = ['daily', 'monthly', 'eisenhower', 'notes', 'lessons'];
+                const hasValidStructure = requiredKeys.some(key => data[key] !== undefined);
+                if (!hasValidStructure) {
+                    showToast('Invalid data file — missing expected fields');
+                    return;
                 }
-                if (data.notes) {
-                    notes = data.notes;
-                    localStorage.setItem('plannerNotes', JSON.stringify(notes));
-                }
-                renderAllQuadrants();
+                // Backup current data before overwrite
+                const backup = JSON.stringify(AppState.data);
+                localStorage.setItem('plannerDataBackup', backup);
+
+                // Merge imported data into AppState
+                if (data.daily) AppState.data.daily = data.daily;
+                if (data.monthly) AppState.data.monthly = data.monthly;
+                if (data.eisenhower) AppState.data.eisenhower = data.eisenhower;
+                if (data.notes) AppState.data.notes = data.notes;
+                if (data.lessons) AppState.data.lessons = data.lessons;
+                saveData();
+                renderEisenhowerMatrix();
                 renderCalendar();
                 renderNotes();
                 showToast('Data imported successfully');
             } catch (error) {
-                showToast('Error importing data');
+                showToast('Error importing data: ' + error.message);
             }
         };
         reader.readAsText(file);
@@ -3903,9 +4337,19 @@ function initSettings() {
     settingsClearData.addEventListener('click', () => {
         if (confirm('Are you sure you want to delete all your tasks, notes, and settings? This cannot be undone.')) {
             localStorage.clear();
-            tasks = [];
-            notes = [];
-            renderAllQuadrants();
+            AppState.data = {
+                daily: {},
+                monthly: {},
+                eisenhower: {
+                    'urgent-important': [],
+                    'not-urgent-important': [],
+                    'urgent-not-important': [],
+                    'not-urgent-not-important': []
+                },
+                notes: [],
+                lessons: { daily: {}, monthly: {} }
+            };
+            renderEisenhowerMatrix();
             renderCalendar();
             renderNotes();
             settingsClientId.value = '';
@@ -4945,4 +5389,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initGoogleCalendar();
     initSettings();
     initKeyboardShortcuts();
+
+    // Restore timer if it was running before page refresh
+    setTimeout(restoreTimerState, 500);
 });

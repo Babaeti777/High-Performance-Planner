@@ -1619,6 +1619,7 @@ const BidTracker = {
 
     // Generate ICS file content
     generateICSContent(events, calendarName) {
+        const userTZ = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles';
         const lines = [
             'BEGIN:VCALENDAR',
             'VERSION:2.0',
@@ -1626,12 +1627,12 @@ const BidTracker = {
             'CALSCALE:GREGORIAN',
             'METHOD:PUBLISH',
             `X-WR-CALNAME:Bids - ${this.escapeICS(calendarName)}`,
-            'X-WR-TIMEZONE:America/Los_Angeles'
+            `X-WR-TIMEZONE:${userTZ}`
         ];
 
         lines.push(
             'BEGIN:VTIMEZONE',
-            'TZID:America/Los_Angeles',
+            `TZID:${userTZ}`,
             'BEGIN:STANDARD',
             'DTSTART:19701101T020000',
             'RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU',
@@ -1651,8 +1652,8 @@ const BidTracker = {
             lines.push('BEGIN:VEVENT');
             lines.push(`UID:${event.uid}@highperformanceplanner`);
             lines.push(`DTSTAMP:${this.formatICSDate(new Date())}`);
-            lines.push(`DTSTART;TZID=America/Los_Angeles:${this.formatICSDate(event.start, true)}`);
-            lines.push(`DTEND;TZID=America/Los_Angeles:${this.formatICSDate(event.end, true)}`);
+            lines.push(`DTSTART;TZID=${userTZ}:${this.formatICSDate(event.start, true)}`);
+            lines.push(`DTEND;TZID=${userTZ}:${this.formatICSDate(event.end, true)}`);
             lines.push(`SUMMARY:${this.escapeICS(event.summary)}`);
             if (event.location) {
                 lines.push(`LOCATION:${this.escapeICS(event.location)}`);
