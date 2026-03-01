@@ -626,6 +626,9 @@ const BidTracker = {
         if (data.dueDate) document.getElementById('bidDueDate').value = data.dueDate;
         if (data.preBidDate) document.getElementById('bidPreBidDate').value = data.preBidDate;
         if (data.rfiDate) document.getElementById('bidRfiDate').value = data.rfiDate;
+        if (data.siteVisitDate) document.getElementById('bidSiteVisit').value = data.siteVisitDate;
+        if (data.estimatedValue) document.getElementById('bidValue').value = data.estimatedValue;
+        if (data.projectLocation) document.getElementById('bidLocation').value = data.projectLocation;
 
         // Reset file upload UI
         this.resetFileUpload();
@@ -2059,11 +2062,12 @@ const BidTracker = {
     addBidEventsToApp(bid) {
         if (typeof AppState === 'undefined') return;
 
-        const now = new Date();
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
         const events = this.generateBidSyncEvents(bid);
 
         events.forEach(event => {
-            if (event.date <= now) return; // Skip past events
+            if (event.date < todayStart) return; // Skip past events (keep today's)
 
             const dateKey = this.formatDateKey(event.date);
 
